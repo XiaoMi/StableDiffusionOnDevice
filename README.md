@@ -20,8 +20,8 @@ CPU分支采用中央处理器（CPU）进行计算，可以在符合系统要�
 
 
 ## 安装须知：
-1. 进入 $ROOT/app/src/main/cpp，运行opencv.sh安装opencv库
-2. 进入 $ROOT/app/src/main/cpp/boost，在boost.sh中将$NDK_ROOT替换成合适的ndk路径（如android-ndk-r25c），运行boost.sh安装boost库
+1. 进入 $ROOT/app/src/main/cpp，运行[opencv.sh](app\src\main\cpp\opencv.sh)安装opencv库
+2. 进入 $ROOT/app/src/main/cpp/boost，在[boost.sh](app\src\main\cpp\boost\boost.sh)中将$NDK_ROOT替换成合适的ndk路径（如android-ndk-r25c），运行boost.sh安装boost库
 4. 进入 $ROOT/app/src/main/assets/stable_diffusion，按照[README.md](app/src/main/assets/stable_diffusion/README.md)安装高通库文件
 3. 按照下述模型下载中要求对应平台的模型
 

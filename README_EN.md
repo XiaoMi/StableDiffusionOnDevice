@@ -20,8 +20,8 @@ The CPU branch uses the Central Processing Unit (CPU) for computation, and is co
 
 
 ## Installation Instructions:
-1. Navigate to $ROOT/app/src/main/cpp and run the opencv.sh script to install the OpenCV library.
-2. Go to $ROOT/app/src/main/cpp/boost, replace $NDK_ROOT in the boost.sh script with the appropriate NDK path (e.g., android-ndk-r25c), and then run the boost.sh script to install the Boost library.
+1. Navigate to $ROOT/app/src/main/cpp and run the [opencv.sh](app\src\main\cpp\opencv.sh) script to install the OpenCV library.
+2. Go to $ROOT/app/src/main/cpp/boost, replace $NDK_ROOT in the [boost.sh](app\src\main\cpp\boost\boost.sh) script with the appropriate NDK path (e.g., android-ndk-r25c), and then run the boost.sh script to install the Boost library.
 3. Follow the instructions in the [README.md](app/src/main/assets/stable_diffusion/README.md) to install the stable diffusion library files in the $ROOT/app/src/main/assets/stable_diffusion directory.
 4. Download the models as required for your specific platform according to the model download instructions provided.
 
