@@ -27,13 +27,7 @@ The CPU branch uses the Central Processing Unit (CPU) for computation, and is co
 
 
 ### Model Download
-(gitlab temporary version)To download the model, follow these steps:
-
-1. cd ../root
-2. git lfs fetch
-3. git lfs checkout
-
-(github opensource version)The quantized SD model is open-sourced on Hugging Face. If you want to use this model, you can download it from the `Hugging Face website` and place it in the corresponding folder for use.
+Please download the model from [Huggingface](https://huggingface.co/billlight/XiaoMiStableDiffusionV1.0) and place it in the directory described below.
 
 QNN Branch:
 * Xiaomi 13 series: root_folder/app/src/main/assets/stable_diffusion/qnn_model_8550/
