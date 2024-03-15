@@ -27,14 +27,6 @@ CPU分支采用中央处理器（CPU）进行计算，可以在符合系统要�
 
 
 ### 模型下载
-（gitlab临时版）模型下载通过以下步骤进行:
-1. cd ../root
-2. git lfs fetch
-3. git lfs checkout
-
-
-（github开源版）量化后的SD模型在Hugging Face上开源。如果你想使用这个模型可以在`Hugging Face网址`上下载模型，放入相应文件夹中进行使用。
-
 QNN分支:
 * 小米13系列: root_folder/app/src/main/assets/stable_diffusion/qnn_model_8550/
 * 小米14系列: root_folder/app/src/main/assets/stable_diffusion/qnn_model_8650/

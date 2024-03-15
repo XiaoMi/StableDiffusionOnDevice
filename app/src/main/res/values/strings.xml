@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">StableDiffusion</string>
+    <string name="introText">Hello World!</string>
+    <string name="statusText">等待加载模型</string>
+    <string name="loadModel">加载模型</string>
+    <string name="paint">开始作图</string>
+    <string name="title_activity_paint">PaintActivity</string>
+</resources>

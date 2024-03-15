@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#9E445EE0"
+    android:orientation="vertical"
+    tools:context=".Text2GraphActivity">
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tv_timer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#1A237E"
+            android:gravity="center"
+            android:text="00:00:000"
+            android:textColor="#FAF7F6"
+            android:textSize="74sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:gravity="center_horizontal"
+            android:text=""
+            android:textSize="20dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:background="#C14454E0"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:background="#743349C6"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="8dp"
+            android:orientation="vertical">
+
+            <EditText
+                android:id="@+id/pos"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:gravity="center"
+                android:hint="\n Positive Prompt (use default if no input) \n"
+                android:maxLines="4"
+                android:text=""
+                android:textColor="#FAF7F6"
+                android:textColorHint="@color/gray"
+                android:textCursorDrawable="@null"
+                android:textSize="16sp"
+                android:theme="@style/EditTextStyle" />
+
+            <EditText
+                android:id="@+id/neg"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:gravity="center"
+                android:hint="\n Negative Prompt (use default if no input) \n"
+                android:maxLines="3"
+                android:text=""
+                android:textColor="#FAF7F6"
+                android:textColorHint="@color/gray"
+                android:textCursorDrawable="@null"
+                android:textSize="16sp"
+                android:theme="@style/EditTextStyle" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:background="#C14454E0"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="100dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:layout_weight="0.2"
+
+            android:gravity="center"
+            android:text="Seed:"
+            android:textColor="#FAF7F6"
+            android:textSize="19sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/seed"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="8dp"
+            android:layout_weight="5"
+            android:ems="10"
+            android:gravity="center"
+            android:hint="Seed"
+            android:inputType="textPersonName"
+            android:text="83"
+            android:textColor="#FAF7F6"
+            android:textSize="17sp"
+            android:theme="@style/EditTextStyle" />
+
+        <Button
+            android:id="@+id/txt2img"
+            android:layout_width="200dp"
+            android:layout_height="58dp"
+            android:layout_marginLeft="30dp"
+            android:layout_marginRight="10dp"
+            android:layout_marginBottom="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/custom_button"
+            android:backgroundTint="#9FA8DA"
+            android:text="Generate"
+            android:textAllCaps="false"
+            android:textColor="#FAF7F6"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:gravity="center"
+        android:text="steps = 20"
+        android:textColor="#FAF7F6"
+        android:textSize="18dp" />
+
+    <ImageView
+        android:id="@+id/resView"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_weight="1"
+        android:background="#C14454E0"
+        android:src="@drawable/robot" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="5dp"
+        android:gravity="center_horizontal"
+        android:text=""
+        android:textSize="20dp" />
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:background="#C14454E0"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginStart="30dp"
+            android:layout_weight="1"
+            android:fontFamily="serif"
+            android:gravity="center_vertical"
+            android:text="Stable Diffusion"
+            android:textColor="#FAF7F6"
+            android:textSize="25dp"
+            android:textStyle="bold|italic" />
+
+        <ImageView
+            android:id="@+id/xiaomiView"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_weight="4"
+            android:src="@drawable/xiaomi" />
+    </LinearLayout>
+</LinearLayout>
