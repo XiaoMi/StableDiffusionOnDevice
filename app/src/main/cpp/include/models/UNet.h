@@ -1,12 +1,9 @@
-//
-// Created by ykfan on 2023/8/8.
-//
-
 #ifndef STABLEDIFFUSION_UNET_H
 #define STABLEDIFFUSION_UNET_H
-#include "qcom/QCOMModel.h"
+#include "onnx/ONNXModel.h"
 
-class UNet : public QCOMModel{
+class UNet : public ONNXModel{
+
 public:
     UNet();
 
@@ -18,7 +15,7 @@ public:
 
     void set_latent_size(int latent_size_h, int latent_size_w) override;
 
-    int denoise(const cv::Mat &input, float t, const cv::Mat &cond,cv::Mat &denoised);
+    cv::Mat decode(const cv::Mat &input, float t, const cv::Mat &cond);
 
 private:
 

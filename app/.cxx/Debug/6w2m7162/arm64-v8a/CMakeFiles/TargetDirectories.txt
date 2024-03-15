@@ -1,0 +1,3 @@
+/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/.cxx/Debug/6w2m7162/arm64-v8a/CMakeFiles/rebuild_cache.dir
+/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/.cxx/Debug/6w2m7162/arm64-v8a/CMakeFiles/edit_cache.dir
+/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/.cxx/Debug/6w2m7162/arm64-v8a/CMakeFiles/stablediffusion.dir

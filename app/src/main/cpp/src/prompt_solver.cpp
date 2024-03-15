@@ -3,6 +3,8 @@
 
 int PromptSolver::load(const std::string &path) {
     tokenizer_en.set_language(0);
+    textEncoder_en.set_language(0);
+
     int res = textEncoder_en.load(path);
     if (res < 0) {
         LOGE("textEncoder_en load failed!");
@@ -15,18 +17,15 @@ int PromptSolver::load(const std::string &path) {
         LOGE("CLIPTokenizer load failed!");
         return res;
     }
+
     LOGI("CLIPTokenizer load success");
     LOGI("PromptSolver init success");
     return 0;
 }
 
-int PromptSolver::get_conditioning(const string &prompt_en, const string &default_prompt_en,
-                                   cv::Mat &res_cond) {
-    return get_conditioning_v2_en(prompt_en, default_prompt_en, res_cond);
-}
 
-int PromptSolver::get_conditioning_v2_en(const string &prompt, const string &default_prompt,
-                                         cv::Mat &res_cond) {
+
+cv::Mat PromptSolver::get_conditioning_v2_en(const string &prompt, const string &default_prompt) {
     textEncoder_en.before_run();
 
     auto tokens_and_weights = tokenizer_en.tokenize(prompt, 77, true);
@@ -42,11 +41,8 @@ int PromptSolver::get_conditioning_v2_en(const string &prompt, const string &def
         weights = tokens_and_weights.second;
     }
 
-    cv::Mat tokens_cond(77, 768, CV_32FC1);
-    if (textEncoder_en.encode(tokenized, tokens_cond) < 0)
-        return -1;
-
-    res_cond = tokens_cond.clone();
+    auto tokens_cond = textEncoder_en.decode(tokenized);
+    auto res_cond = tokens_cond.clone();
 
     for (int i = 0; i < res_cond.rows; ++i) {
         for (int j = 0; j < res_cond.cols; ++j) {
@@ -63,9 +59,14 @@ int PromptSolver::get_conditioning_v2_en(const string &prompt, const string &def
     res_cond.convertTo(res_cond, CV_32FC1, original_mean[0] / res_mean[0]);
 
     textEncoder_en.after_run();
-    return 0;
+    return res_cond;
 }
 
-int PromptSolver::unload() {
-    return textEncoder_en.unload();
+
+
+cv::Mat PromptSolver::get_conditioning(const string &prompt_ch, const string &prompt_en,
+                                       const string &default_prompt_ch,
+                                       const string &default_prompt_en,
+                                       int language_mode) {
+    return get_conditioning_v2_en(prompt_en, default_prompt_en);
 }

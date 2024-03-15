@@ -21,15 +21,18 @@ scheduler_dpmpp_2m::scheduler_dpmpp_2m() {
             betas.push_back(pow(i, 2));
         }
     }
+
     for (float beta: betas) {
         float alpha = 1.0f - beta;
         alphas.push_back(alpha);
         alphas_cumprod.push_back(alpha * (alphas_cumprod.empty() ? 1.0f : alphas_cumprod.back()));
     }
+
     for (float value: alphas_cumprod) {
         alpha_ts.push_back(sqrt(value));
         sigma_ts.push_back(sqrt(1. - value));
     }
+
     for (int i = 0; i < alphas_cumprod.size(); i++) {
         lambda_ts.push_back(log(alpha_ts[i]) - log(sigma_ts[i]));
     }
@@ -53,6 +56,7 @@ std::vector<float> scheduler_dpmpp_2m::set_timesteps(int steps) {
     for (float &timestep: timesteps) {
         timestep = round(timestep);
     }
+
     vec_print("timesteps", timesteps);
     return timesteps;
 }
@@ -79,6 +83,7 @@ cv::Mat scheduler_dpmpp_2m::dpm_solver_first_order_update(cv::Mat model_output, 
             *((float *) x_t.data + i) = *((float *) sample.data + i) * (sigma_t / sigma_s) -
                                         *((float *) model_output.data + i) * alpha_t *
                                         (exp(-h) - 1.0);
+
         }
     } else if (algorithm_type == "sde-dpmsolver++") {
         for (int i = 0; i < model_output.rows * model_output.cols * model_output.channels(); i++) {
@@ -86,6 +91,7 @@ cv::Mat scheduler_dpmpp_2m::dpm_solver_first_order_update(cv::Mat model_output, 
                     *((float *) sample.data + i) * (sigma_t / sigma_s * exp(-h)) +
                     *((float *) model_output.data + i) * alpha_t * (1 - exp(-2 * h)) +
                     *((float *) noise.data + i) * sigma_t * sqrt(1 - exp(-2 * h));
+
         }
 
     }
@@ -115,7 +121,6 @@ cv::Mat scheduler_dpmpp_2m::multistep_dpm_solver_second_order_update(
     float r0 = r0 = h_0 / h;
     cv::Mat D0 = m0;
     cv::Mat D1 = m1.clone();
-    LOGI("ggggg6666g");
     for (int i = 0; i < m0.rows * m0.cols * m0.channels(); i++) {
         *((float *) D1.data + i) =
                 1 / r0 * (*((float *) m0.data + i) - *((float *) m1.data + i));
@@ -137,7 +142,6 @@ cv::Mat scheduler_dpmpp_2m::multistep_dpm_solver_second_order_update(
                     *((float *) D0.data + i) * alpha_t * (1 - exp(-2 * h)) +
                     *((float *) D1.data + i) * alpha_t * (1 - exp(-2 * h)) / (1 - 2 * h) +
                     *((float *) noise.data + i) * sigma_t * sqrt(1 - exp(-2 * h));
-
         }
     }
     return x_t;
@@ -163,7 +167,6 @@ cv::Mat scheduler_dpmpp_2m::step(int step_index, cv::Mat &sample_mat, cv::Mat &d
         float sample = *(x_ptr + hwc);
         float model_output = *(d_ptr + hwc);
         *((float *) output.data + hwc) = (sample - sigma_t * model_output) / alpha_t;
-
     }
     if (solver_order > 1) {
         model_outputs[1] = model_outputs[0];

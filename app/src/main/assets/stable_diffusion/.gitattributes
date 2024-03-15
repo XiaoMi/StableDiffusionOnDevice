@@ -1,2 +1,1 @@
-qnn_model_8550/*.bin filter=lfs diff=lfs merge=lfs -text
-qnn_model_8650/*.bin filter=lfs diff=lfs merge=lfs -text
+onnx/*.ort filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,7 @@
+Executable : /home/billlight/Android/Sdk/cmake/3.18.1/bin/ninja
+arguments : 
+-C
+/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/.cxx/Debug/6w2m7162/arm64-v8a
+stablediffusion
+jvmArgs : 
+

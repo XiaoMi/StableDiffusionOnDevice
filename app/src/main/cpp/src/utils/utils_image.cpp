@@ -43,20 +43,26 @@ void matToBitmap(JNIEnv *env, cv::Mat &src, jobject bitmap) {
 }
 
 
-cv::Mat FourierFeatures(const float t) {
-    cv::Mat cv_x(cv::Size(640, 1), CV_32FC1);
-    cv::RNG rng(0);
-    rng.fill(cv_x, cv::RNG::NORMAL, 0, 1);
-    std::vector<float> out(1280);
-    for (int i = 0; i < 640; i++) {
-        double f = *((float *) cv_x.data + i) * 2 * 3.141592653589793 * t;
-        out.emplace_back(cos(f));
+int convert_hwc_to_chw(const float *src, float *target, int height, int width, int channel) {
+    for (int k = 0; k < channel; k++) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                *(target + k * height * width + i * width + j) =
+                        *(src + i * width * channel + j * channel + k);
+            }
+        }
     }
-    for (int i = 0; i < 640; i++) {
-        double f = *((float *) cv_x.data + i) * 2 * 3.141592653589793 * t;
-        out.emplace_back(sin(f));
+    return 0;
+}
+
+int convert_chw_to_hwc(const float *src, float *target, int height, int width, int channel) {
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            for (int k = 0; k < channel; k++) {
+                *(target + i * width * channel + j * channel + k) =
+                        *(src + k * height * width + i * width + j);
+            }
+        }
     }
-    cv::Mat cv_out(cv::Size(1280, 1), CV_32FC1);
-    memcpy(cv_out.data, out.data(), 1280 * sizeof(float));
-    return cv_out;
+    return 0;
 }

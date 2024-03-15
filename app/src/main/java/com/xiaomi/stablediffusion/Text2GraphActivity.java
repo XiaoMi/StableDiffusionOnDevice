@@ -46,6 +46,7 @@ import java.io.OutputStream;
 
 import android.os.Handler;
 import android.os.Message;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,13 +57,15 @@ public class Text2GraphActivity extends AppCompatActivity {
     private EditText negativePromptText;
     private TextView tv_time;
     private EditText seedText;
+    private EditText stepText;
+    private EditText img_sizeText;
     private int imgHeight = 512;
     private int imgWidth = 512;
 
     private Bitmap showBitmap;
     private int step;
     private int seed;
-    private String postivePrompt_en, negativePrompt_en;
+    private String postivePrompt_ch = "", negativePrompt_ch = "", postivePrompt_en, negativePrompt_en;
     private SDTimer sdTimer;
     private Map<String, String> resultMap = new HashMap<>();
     public static AIThread handlerThread;
@@ -79,7 +82,7 @@ public class Text2GraphActivity extends AppCompatActivity {
         private static final String TAG = "Load Thread";
 
         public static final int TYPE_START = 8;//主线程通知任务开始
-        public static final int TYPE_COPY_FINISHED = 9;//通知主线程拷贝任务结束
+        public static final int TYPE_COPY_FINISHED = 9;//通知主线程COPY任务结束
         public static final int TYPE_FINISHED = 10;//通知主线程任务结束
 
         private Handler mHandler;//主线程的Handler
@@ -133,11 +136,10 @@ public class Text2GraphActivity extends AppCompatActivity {
             mUIHandler = UIhandler;
             Log.i(TAG, "setUIHandler: 2.主线程的handler传入到AI线程");
         }
+
         public void startTXT2IMG() {
             Log.i(TAG, "startTXT2IMG: 3.接收主线程通知,此时AI线程开始文生图");
-            txt2img_res = sd.txt2imgProcess(showBitmap, step, seed, postivePrompt_en, negativePrompt_en);
-//            if (sd.release() == 0)
-//                modelLoadStatus = false;
+            txt2img_res = sd.txt2imgProcess(showBitmap, step, seed, postivePrompt_ch, negativePrompt_ch, postivePrompt_en, negativePrompt_en);
             Log.i(TAG, "startTXT2IMG: 6.通知主线程,此时AI线程文生图完成");
             mUIHandler.sendEmptyMessage(TYPE_FINISHED);
         }
@@ -207,9 +209,11 @@ public class Text2GraphActivity extends AppCompatActivity {
         imageView = (ImageView) findViewById(R.id.resView);
         positivePromptText = (EditText) findViewById(R.id.pos);
         negativePromptText = (EditText) findViewById(R.id.neg);
-//        negativePromptText = (EditText) findViewById(R.id.neg);
-//        stepText = (EditText) findViewById(R.id.step);
+        stepText = (EditText) findViewById(R.id.step);
         seedText = (EditText) findViewById(R.id.seed);
+        img_sizeText = findViewById(R.id.image_size);
+        imgWidth = Integer.valueOf(img_sizeText.getText().toString());
+        imgHeight = Integer.valueOf(img_sizeText.getText().toString());
         showBitmap = Bitmap.createBitmap(imgWidth, imgHeight, Bitmap.Config.ARGB_8888);
         tv_time = (TextView) findViewById(R.id.tv_timer);
         sdTimer = new SDTimer(100);
@@ -228,7 +232,6 @@ public class Text2GraphActivity extends AppCompatActivity {
                 getWindow().setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
                 postivePrompt_en = positivePromptText.getText().toString();
                 negativePrompt_en = negativePromptText.getText().toString();
-                step = 20;
                 String text = seedText.getText().toString().replaceAll(" ", "");
                 if (text.equals("")) {
                     Toast.makeText(Text2GraphActivity.this, "Seed设置无效，请重新输入", Toast.LENGTH_LONG).show();
@@ -237,8 +240,9 @@ public class Text2GraphActivity extends AppCompatActivity {
                 } else {
                     seed = Integer.parseInt(text);
                 }
-                imgWidth = 512;
-                imgHeight = 512;
+                step = Integer.valueOf(stepText.getText().toString());
+                imgWidth = Integer.valueOf(img_sizeText.getText().toString());
+                imgHeight = Integer.valueOf(img_sizeText.getText().toString());
                 showBitmap = Bitmap.createBitmap(imgWidth, imgHeight, Bitmap.Config.ARGB_8888);
 
                 Handler mUIhandler = new Handler(handlerThread.getLooper()) {
@@ -254,7 +258,7 @@ public class Text2GraphActivity extends AppCompatActivity {
                                     public void run() {
                                         imageView.setImageDrawable(getDrawable(R.drawable.robot));
                                         if (postivePrompt_en.replaceAll(" ", "").equals("")) {
-                                            postivePrompt_en = "mini hamburgers shaped like the faces of cats, in the style of makoto shinkai, hergé, party kei, sculpted, naoto hattori, exquisite detailing";
+                                            postivePrompt_en = "Japanese garden at wildlife river and mountain range, highly detailed, digital illustration, artstation, concept art, matte, sharp focus, illustration, dramatic, sunset, hearthstone, art by Artgerm and Greg Rutkowski and Alphonse Mucha.";
                                             positivePromptText.setText(postivePrompt_en);
                                         }
                                         sdTimer.start();
@@ -270,7 +274,7 @@ public class Text2GraphActivity extends AppCompatActivity {
                                     @Override
                                     public void run() {
                                         sdTimer.stop();
-                                        if (txt2img_res <0)
+                                        if (txt2img_res < 0)
                                             Toast.makeText(Text2GraphActivity.this, "生图推理失败，请重试", Toast.LENGTH_LONG).show();
                                         else
                                             imageView.setImageBitmap(styledImage);
@@ -330,7 +334,6 @@ public class Text2GraphActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 dialog.show();
-//                                statusTextView.setText("模型拷贝中...");
                             }
                         });
                         loadHandlerThread.startCopy();
@@ -341,11 +344,15 @@ public class Text2GraphActivity extends AppCompatActivity {
                     case InitThread.TYPE_FINISHED:
                         endTime = System.currentTimeMillis();
                         float duration = (float) ((endTime - startTime) / 1000.0f);
-                        if (init_res < 0) {
+                        if (init_res <= -3) {
                             modelLoadStatus = false;
                             Toast.makeText(Text2GraphActivity.this, "模型加载失败，请检查APK", Toast.LENGTH_LONG).show();
                             Log.e("MainActivity", "SD Init failed");
-                        }else {
+                        } else if (init_res < 0) {
+                            modelLoadStatus = false;
+                            Toast.makeText(Text2GraphActivity.this, "模型完整性检测失败，请检查模型", Toast.LENGTH_LONG).show();
+                            Log.e("MainActivity", "SD Init failed");
+                        } else {
                             modelLoadStatus = true;
                             uiHandler.post(new Runnable() {
                                 @Override

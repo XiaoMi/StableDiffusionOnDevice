@@ -1,25 +1,23 @@
-//
-// on 2023/8/7.
-//
-
 #ifndef STABLEDIFFUSION_DECODERMODEL_H
 #define STABLEDIFFUSION_DECODERMODEL_H
 
-#include "qcom/QCOMModel.h"
+#include "onnx/ONNXModel.h"
 
-class DecoderModel : public QCOMModel{
+
+class DecoderModel : public ONNXModel{
 
 public:
     DecoderModel();
 
     ~DecoderModel();
 
+    int pre_process(const std::vector<cv::Mat> &inputs, std::vector<cv::Mat> &outputs) override;
 
     int post_process(std::vector<cv::Mat> &outputs) override;
 
     void set_latent_size(int latent_size_h, int latent_size_w) override;
 
-    int decode(cv::Mat &sample,cv::Mat &res_img);
+    cv::Mat decode(const cv::Mat &sample);
 
 private:
 

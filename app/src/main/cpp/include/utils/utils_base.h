@@ -19,12 +19,10 @@
 #include <stack>
 #include <fstream>
 #include <map>
-#include <unordered_map>
 #include <set>
 #include <codecvt>
 #include <stdio.h>
 #include <math.h>
-#include <android/bitmap.h>
 #include <algorithm>
 #include <time.h>
 #include <random>
@@ -37,6 +35,9 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#include <onnxruntime_cxx_api.h>
+#include <boost/regex.hpp>
+#include <android/bitmap.h>
 
 class Timer {
 public:

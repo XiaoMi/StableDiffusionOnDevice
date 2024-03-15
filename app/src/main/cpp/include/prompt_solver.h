@@ -7,11 +7,15 @@ using namespace std;
 class PromptSolver {
 public:
     int load(const std::string &path);
-    int get_conditioning(const string &prompt_en,const string &default_prompt_en, cv::Mat &res_cond);
-    int unload();
+
+    cv::Mat get_conditioning(const string &prompt_ch, const string &prompt_en,
+                             const string &default_prompt_ch,
+                             const string &default_prompt_en, int language_mode);
 
 private:
-    int get_conditioning_v2_en(const string &prompt, const string &default_prompt,cv::Mat &res_cond);
+
+    cv::Mat get_conditioning_v2_en(const string &prompt, const string &default_prompt);
+
     TextEncoderModel textEncoder_en;
     CLIPTokenizer tokenizer_en;
 };

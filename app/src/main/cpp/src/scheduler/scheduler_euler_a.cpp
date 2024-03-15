@@ -67,6 +67,7 @@ scheduler_euler_a::scheduler_euler_a() {
     for (float alpha: alphas_cumprod) {
         sigmas_total.push_back(sqrt((1 - alpha) / alpha));
     }
+
     init_noise_sigma = *std::max_element(sigmas_total.begin(), sigmas_total.end());
 }
 
@@ -160,7 +161,6 @@ cv::Mat scheduler_euler_a::randn_mat(int seed, int height, int width, int is_lat
             double theta = 2.0 * 3.141592653589793 * u2;
             double standardNormalRand = radius * cos(theta);
             *((float *) cv_x.data + i) = (float) (standardNormalRand * init_noise_sigma);
-
         }
     }
     return cv_x;

@@ -1,3 +1,4 @@
+
 #include <android/asset_manager_jni.h>
 #include <android/bitmap.h>
 #include <android/log.h>
@@ -50,24 +51,6 @@ Java_com_xiaomi_stablediffusion_StableDiffusion_Init(JNIEnv *env,
                                                      jobject assetManager,
                                                      jstring jpath) {
     std::string path = JavaStringToString(env, jpath);
-    if (setenv("LD_LIBRARY_PATH", (path + "/stable_diffusion/qnn_lib_" + QCOM_VERSION +
-                                   ":/vendor/dsp/cdsp:/vendor/lib64:/vendor/dsp/dsp:/vendor/dsp/images").c_str(),
-               1) == 0) {
-        // 成功设置环境变量
-        LOGI("setenv finished");
-    } else {
-        LOGE("setenv failed");
-        // 设置环境变量失败
-    }
-    if (setenv("ADSP_LIBRARY_PATH", (path + "/stable_diffusion/qnn_lib_" + QCOM_VERSION +
-                                     ";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/vendor/dsp/dsp;/vendor/dsp/images;/dsp").c_str(),
-               1) == 0) {
-        // 成功设置环境变量
-        LOGI("setenv finished");
-    } else {
-        LOGE("setenv failed");
-        // 设置环境变量失败
-    }
 
     if (prompt_solver.load(path) < 0) {
         LOGE("prompt_solver load failed!");
@@ -83,6 +66,7 @@ Java_com_xiaomi_stablediffusion_StableDiffusion_Init(JNIEnv *env,
         LOGE("decode_solver load failed!");
         return -3;
     }
+
     return 0;
 }
 
@@ -92,14 +76,18 @@ Java_com_xiaomi_stablediffusion_StableDiffusion_txt2imgProcess(JNIEnv *env,
                                                                jobject show_bitmap,
                                                                jint jstep,
                                                                jint jseed,
+                                                               jstring jpositivePromptCh,
+                                                               jstring jnegativePromptCh,
                                                                jstring jpositivePromptEn,
                                                                jstring jnegativePromptEn
 ) {
 
     Timer timer("txt2img");
+    std::string positive_prompt_ch = "" + JavaStringToString(env, jpositivePromptCh);
+    std::string negative_prompt_ch = "" + JavaStringToString(env, jnegativePromptCh);
     std::string positive_prompt_en = "" + JavaStringToString(env, jpositivePromptEn);
     std::string negative_prompt_en = "" + JavaStringToString(env, jnegativePromptEn);
-    std::string default_positive_prompt_en = "mini hamburgers shaped like the faces of cats, in the style of makoto shinkai, hergé, party kei, sculpted, naoto hattori, exquisite detailing";
+    std::string default_positive_prompt_en = "Japanese garden at wildlife river and mountain range, highly detailed, digital illustration, artstation, concept art, matte, sharp focus, illustration, dramatic, sunset, hearthstone, art by Artgerm and Greg Rutkowski and Alphonse Mucha.";
 
     AndroidBitmapInfo info;
     AndroidBitmap_getInfo(env, show_bitmap, &info);
@@ -110,42 +98,17 @@ Java_com_xiaomi_stablediffusion_StableDiffusion_txt2imgProcess(JNIEnv *env,
     decode_solver.set_latent_size(info.height / 8, info.width / 8);
     int step = jstep;
     int seed = jseed;
-    cv::Mat cond, uncond;
     timer.add_record_point("prepare");
-    if (prompt_solver.get_conditioning(positive_prompt_en, default_positive_prompt_en, cond) < 0) {
-        LOGE("prompt_solver positive prompt inference failed!");
-        return -4;
-    }
-    if (prompt_solver.get_conditioning(negative_prompt_en, "", uncond) < 0) {
-        LOGE("prompt_solver negative prompt inference failed!");
-        return -4;
-    }
+    auto cond = prompt_solver.get_conditioning(positive_prompt_ch, positive_prompt_en,
+                                               "", default_positive_prompt_en, 0);
+    auto uncond = prompt_solver.get_conditioning(negative_prompt_ch, negative_prompt_en,
+                                                 "", "", 0);
     timer.add_record_point("prompt");
-    cv::Mat sample;
-    if (diffusion_solver.sampler_txt2img(seed, step, cond, uncond, sample) < 0) {
-        LOGE("diffusion_solver inference failed!");
-        return -4;
-    }
+    cv::Mat sample = diffusion_solver.sampler_txt2img(seed, step, cond, uncond);
     timer.add_record_point("unet");
-    cv::Mat x_samples_ddim;
-    if (decode_solver.decode(sample, x_samples_ddim) < 0) {
-        LOGE("decode_solver inference failed!");
-        return -4;
-    }
+    cv::Mat x_samples_ddim = decode_solver.decode(sample);
     timer.add_record_point("decoder");
     matToBitmap(env, x_samples_ddim, show_bitmap);
     return 0;
 }
-}
-extern "C"
-JNIEXPORT jint JNICALL
-Java_com_xiaomi_stablediffusion_StableDiffusion_release(JNIEnv *env, jobject thiz) {
-    // TODO: implement release()
-    if (prompt_solver.unload() < 0)
-        return -7;
-    if (diffusion_solver.unload() < 0)
-        return -7;
-    if (decode_solver.unload() < 0)
-        return -7;
-    return 0;
 }

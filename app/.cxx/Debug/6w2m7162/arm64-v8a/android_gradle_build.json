@@ -1,0 +1,43 @@
+{
+  "buildFiles": [
+    "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/src/main/cpp/CMakeLists.txt",
+    "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/src/main/cpp/opencv-mobile-4.6.0-android/sdk/native/jni/OpenCVConfig-version.cmake",
+    "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/src/main/cpp/opencv-mobile-4.6.0-android/sdk/native/jni/OpenCVConfig.cmake",
+    "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/src/main/cpp/opencv-mobile-4.6.0-android/sdk/native/jni/abi-arm64-v8a/OpenCVConfig.cmake",
+    "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/src/main/cpp/opencv-mobile-4.6.0-android/sdk/native/jni/abi-arm64-v8a/OpenCVModules-release.cmake",
+    "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/src/main/cpp/opencv-mobile-4.6.0-android/sdk/native/jni/abi-arm64-v8a/OpenCVModules.cmake"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/billlight/Android/Sdk/cmake/3.18.1/bin/ninja",
+      "-C",
+      "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/.cxx/Debug/6w2m7162/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/billlight/Android/Sdk/cmake/3.18.1/bin/ninja",
+    "-C",
+    "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/.cxx/Debug/6w2m7162/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "stablediffusion::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "stablediffusion",
+      "output": "/media/billlight/f/StableDiffusion/opensource/stablediffusionopensource/app/build/intermediates/cxx/Debug/6w2m7162/obj/arm64-v8a/libstablediffusion.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/home/billlight/Android/Sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/linux-x86_64/bin/clang",
+      "cppCompilerExecutable": "/home/billlight/Android/Sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}
