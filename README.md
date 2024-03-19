@@ -5,6 +5,8 @@ If you are familiar with English, you can read [English Version](README_EN.md)
 ## 介绍
 [![License](https://img.shields.io/badge/License-MIT%202.0-blue.svg)](LICENSE)
 
+本项目是一个通过文字生成图片的项目，基于开源模型Stable Diffusion V1.5生成可以在手机的CPU和NPU上运行的模型，包括其配套的模型运行框架。
+
 你可以尝试使用以下端侧部署框架运行Stable Diffusion模型。
 
 <img src="assets/dog.jpg" alt="drawing" width="200"/> <img src="assets/universe.jpg" alt="drawing" width="200"/> <img src="assets/girl.jpg" alt="drawing" width="200"/>
