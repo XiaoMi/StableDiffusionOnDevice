@@ -1,4 +1,4 @@
-# XiaoMi Stable Diffusion
+# Stable Diffusion On Device
 
 如果你熟悉中文，你可以查看[中文版本](README.md)
 
@@ -6,17 +6,17 @@
 
 [![License](https://img.shields.io/badge/License-MIT%202.0-blue.svg)](LICENSE)
 
-You can try to runn the Stable Diffusion model using Xiaomi's on device deployment framework.
+You can try to runn the Stable Diffusion model using the following on device deployment framework.
 
 <img src="assets/dog.jpg" alt="drawing" width="200"/> <img src="assets/universe.jpg" alt="drawing" width="200"/> <img src="assets/girl.jpg" alt="drawing" width="200"/>
 
 This project includes two branches:
 
 ### NPU Branch
-The NPU branch primarily utilizes the embedded Neural Processing Unit (NPU) for computation， and is compatible with Xiaomi 13 series and Xiaomi 14 series devices. By default, the branch is set to work on the Xiaomi 13 series. If you need to switch to Xiaomi 14 series, simply modify the `DL_MODE to 2` in the `CMakeLists.txt` file.
+The NPU branch primarily utilizes the embedded Neural Processing Unit (NPU) for computation， and is compatible with Xiaomi 13 series, Xiaomi 14 series devices, and other devices with qualified platforms. By default, the branch is set to work on the Xiaomi 13 series. If you need to switch to Xiaomi 14 series, simply modify the `DL_MODE to 2` in the `CMakeLists.txt` file.
 
 ### CPU Branch
-The CPU branch uses the Central Processing Unit (CPU) for computation, and is compatible with any Xiaomi smartphone that meets the system requirements. You can freely choose the number of model inference steps, seed values, and the size of the generated images to adjust the image generation results.
+The CPU branch uses the Central Processing Unit (CPU) for computation, and is compatible with any smartphone that meets the system requirements. You can freely choose the number of model inference steps, seed values, and the size of the generated images to adjust the image generation results.
 
 
 ## Installation Instructions:
@@ -44,7 +44,7 @@ Uncompressed models website:
 
 |SDK                 | NDK               | CMAKE             | DEVICE PLATFORM      |
 |:------------------:|:-----------------:|:-----------------:|:--------------------:|
-|33                  |26.0.10792818      | 3.18.1            |Xiaomi 8 Gen 2/8 Gen 3|
+|33                  |26.0.10792818      | 3.18.1            |Qualcomm 8 Gen 2/8 Gen 3|
 
 
 ## Performance Benchmarks

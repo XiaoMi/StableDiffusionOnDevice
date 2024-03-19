@@ -1,22 +1,22 @@
-# XiaoMi Stable Diffusion
+# Stable Diffusion On Device
 
 If you are familiar with English, you can read [English Version](README_EN.md)
 
 ## 介绍
 [![License](https://img.shields.io/badge/License-MIT%202.0-blue.svg)](LICENSE)
 
-你可以尝试使用小米的端侧部署框架运行Stable Diffusion模型。
+你可以尝试使用以下端侧部署框架运行Stable Diffusion模型。
 
 <img src="assets/dog.jpg" alt="drawing" width="200"/> <img src="assets/universe.jpg" alt="drawing" width="200"/> <img src="assets/girl.jpg" alt="drawing" width="200"/>
 
 这个project中包含了两个分支
 
 ### NPU分支
-NPU分支主要使用嵌入式神经网络处理器（NPU）进行计算，可以在小米13系列和小米14系列上使用。分支默认是在米13系列上使用，如果需要切换到小米14系列上使用本框架，需要在`CMakeLists.txt`中修改`DL_MODE为2`即可。
+NPU分支主要使用嵌入式神经网络处理器（NPU）进行计算，可以在小米13系列和小米14系列以及其他符合平台要求的机器上进行上使用。分支默认是在米13系列上使用，如果需要切换到小米14系列上使用本框架，需要在`CMakeLists.txt`中修改`DL_MODE为2`即可。
 
 
 ### CPU分支
-CPU分支采用中央处理器（CPU）进行计算，可以在符合系统要求的任意小米手机上工作。你可以自由选择模型推理步数，种子数，以及生成图像的尺寸，从而调整图片生成的效果。
+CPU分支采用中央处理器（CPU）进行计算，可以在符合系统要求的任意手机上工作。你可以自由选择模型推理步数，种子数，以及生成图像的尺寸，从而调整图片生成的效果。
 
 
 ## 安装须知：
@@ -44,7 +44,7 @@ ONNX分支:
 
 |SDK                 | NDK               | CMAKE             | DEVICE PLATFORM      |
 |:------------------:|:-----------------:|:-----------------:|:--------------------:|
-|33                  |26.0.10792818      | 3.18.1            |Xiaomi 8 Gen 2/8 Gen 3|
+|33                  |26.0.10792818      | 3.18.1            |Qualcomm 8 Gen 2/8 Gen 3|
 
 
 ## 性能
