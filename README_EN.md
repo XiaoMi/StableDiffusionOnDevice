@@ -13,10 +13,10 @@ You can try to runn the Stable Diffusion model using the following on device dep
 This project includes two branches:
 
 ### NPU Branch
-The NPU branch primarily utilizes the embedded Neural Processing Unit (NPU) for computation， and is compatible with Xiaomi 13 series and Xiaomi 14 series devices. By default, the branch is set to work on the Xiaomi 13 series. If you need to switch to Xiaomi 14 series, simply modify the `DL_MODE to 2` in the `CMakeLists.txt` file.
+The NPU branch primarily utilizes the embedded Neural Processing Unit (NPU) for computation， and is compatible with Xiaomi 13 series, Xiaomi 14 series devices, and other devices with qualified platforms. By default, the branch is set to work on the Xiaomi 13 series. If you need to switch to Xiaomi 14 series, simply modify the `DL_MODE to 2` in the `CMakeLists.txt` file.
 
 ### CPU Branch
-The CPU branch uses the Central Processing Unit (CPU) for computation, and is compatible with any Xiaomi smartphone that meets the system requirements. You can freely choose the number of model inference steps, seed values, and the size of the generated images to adjust the image generation results.
+The CPU branch uses the Central Processing Unit (CPU) for computation, and is compatible with any smartphone that meets the system requirements. You can freely choose the number of model inference steps, seed values, and the size of the generated images to adjust the image generation results.
 
 
 ## Installation Instructions:
