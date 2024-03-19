@@ -1,4 +1,4 @@
-# XiaoMi Stable Diffusion
+# Stable Diffusion On Device
 
 如果你熟悉中文，你可以查看[中文版本](README.md)
 
@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/License-MIT%202.0-blue.svg)](LICENSE)
 
-You can try to runn the Stable Diffusion model using Xiaomi's on device deployment framework.
+You can try to runn the Stable Diffusion model using the following on device deployment framework.
 
 <img src="assets/dog.jpg" alt="drawing" width="200"/> <img src="assets/universe.jpg" alt="drawing" width="200"/> <img src="assets/girl.jpg" alt="drawing" width="200"/>
 
@@ -44,7 +44,7 @@ Uncompressed models website:
 
 |SDK                 | NDK               | CMAKE             | DEVICE PLATFORM      |
 |:------------------:|:-----------------:|:-----------------:|:--------------------:|
-|33                  |26.0.10792818      | 3.18.1            |Xiaomi 8 Gen 2/8 Gen 3|
+|33                  |26.0.10792818      | 3.18.1            |Qualcomm 8 Gen 2/8 Gen 3|
 
 
 ## Performance Benchmarks

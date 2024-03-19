@@ -1,11 +1,11 @@
-# XiaoMi Stable Diffusion
+# Stable Diffusion On Device
 
 If you are familiar with English, you can read [English Version](README_EN.md)
 
 ## 介绍
 [![License](https://img.shields.io/badge/License-MIT%202.0-blue.svg)](LICENSE)
 
-你可以尝试使用小米的端侧部署框架运行Stable Diffusion模型。
+你可以尝试使用以下端侧部署框架运行Stable Diffusion模型。
 
 <img src="assets/dog.jpg" alt="drawing" width="200"/> <img src="assets/universe.jpg" alt="drawing" width="200"/> <img src="assets/girl.jpg" alt="drawing" width="200"/>
 
@@ -44,7 +44,7 @@ ONNX分支:
 
 |SDK                 | NDK               | CMAKE             | DEVICE PLATFORM      |
 |:------------------:|:-----------------:|:-----------------:|:--------------------:|
-|33                  |26.0.10792818      | 3.18.1            |Xiaomi 8 Gen 2/8 Gen 3|
+|33                  |26.0.10792818      | 3.18.1            |Qualcomm 8 Gen 2/8 Gen 3|
 
 
 ## 性能
