@@ -12,6 +12,7 @@
 #include "interface_defs.h"
 #include "op_def.h"
 #include "tensor.h"
+#include "build_options.h"
 
 #include <memory>
 #include <tuple>
@@ -25,15 +26,19 @@ template <typename T> static inline bool is_output_def_valid(const OutputDef &ou
     return tensor_generator_valid<T>(nullptr, output_def, graph_in);
 }
 
-template <typename T> static inline bool is_input_tensor_compatible(Graph &graph_in, Tensor const *tensor)
+template <typename T>
+static inline bool is_input_tensor_compatible(Graph &graph_in, Tensor const *tensor, unsigned position)
 {
     // dynamic_cast below is used to realise 'std::is_base_of' check with tensor object
     // the cast uses Run Time Type Identification (RTTI) mechanism
     // to infer the true object type to downcast when valid
     // else returns a nullptr
-    if constexpr (0)
-        debuglog("input tensor is %p dynamic cast to %s is %p", tensor, typeid(T).name(), dynamic_cast<T>(tensor));
-    if (!tensor || !dynamic_cast<T>(tensor)) return false;
+    if (!tensor || !dynamic_cast<T>(tensor)) {
+        if constexpr (build_options::DebugRegistry)
+            debuglog("input tensor is %p of type %s in position %d, dynamic cast to %s failed", tensor,
+                     typeid(*tensor).name(), position, typeid(T).name());
+        return false;
+    }
     return true;
 }
 
@@ -57,7 +62,7 @@ template <typename TupType, size_t... I>
 static inline bool are_input_tensors_compatible_helper(std::index_sequence<I...>, Graph &graph_in,
                                                        Tensor const *const *inputs_in)
 {
-    return ((is_input_tensor_compatible<std::tuple_element_t<I, TupType>>(graph_in, inputs_in[I])) && ...);
+    return ((is_input_tensor_compatible<std::tuple_element_t<I, TupType>>(graph_in, inputs_in[I], I)) && ...);
 }
 
 template <size_t N, typename TupType>

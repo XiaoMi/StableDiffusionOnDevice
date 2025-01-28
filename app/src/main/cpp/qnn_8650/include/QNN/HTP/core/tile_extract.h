@@ -146,7 +146,7 @@
 PUSH_VISIBILITY(default)
 
 namespace tileExt {
-enum tile_flags {
+enum tile_flags : unsigned {
     // lower 5 bits contain 'ht'. This must be 0 (to indicate 'default') or a number in range 1..8
     // The default is normally 8; for 32-bit tiles it is 2.
     tile_ht_mask = 31,
@@ -166,17 +166,17 @@ namespace tileExt_priv {
 
 // these are designed so that, for tensor types which don't support tile ops, the read_tile and write_tile
 // methods can just jump to them.
-uint8_t const *unsupported_read(Tensor const *, unsigned flags_unused, uint8_t *buf);
-void unsupported_write(Tensor *);
+API_EXPORT uint8_t const *unsupported_read(Tensor const *, unsigned flags_unused, uint8_t *buf);
+API_EXPORT void unsupported_write(Tensor *);
 
 template <typename STYPE, unsigned RANK>
-uint8_t const *generic_tile_read(Tensor const *, unsigned flags,
-                                 uint8_t *tbuf, // caller-supplied buffer
-                                 size_t b, int h, int w, int d);
+API_EXPORT uint8_t const *generic_tile_read(Tensor const *, unsigned flags,
+                                            uint8_t *tbuf, // caller-supplied buffer
+                                            size_t b, int h, int w, int d);
 template <typename STYPE, unsigned RANK>
-void generic_tile_write(Tensor *, unsigned flags,
-                        uint8_t const *tbuf, // caller-supplied buffer
-                        size_t b, int h, int w, int d);
+API_EXPORT void generic_tile_write(Tensor *, unsigned flags,
+                                   uint8_t const *tbuf, // caller-supplied buffer
+                                   size_t b, int h, int w, int d);
 
 template <unsigned FLAGS, typename T> struct tile_support_flags_for {
     static constexpr unsigned value = FLAGS | ((sizeof(T) == 1) ? Tensor::tile_8bit : 0) |
@@ -200,10 +200,10 @@ template <typename Linfo> struct tile_methods {
     static constexpr bool tile_support_any = is_generic;
     static constexpr bool tile_support_fast = false;
 
-    static inline uint8_t const *tile_read(LayoutTensorType const *tensor, // tensor to read from
-                                           unsigned flags,
-                                           uint8_t *tbuf, // caller-supplied buffer
-                                           size_t b, int h, int w, int d) // coordinates
+    API_EXPORT static inline uint8_t const *tile_read(LayoutTensorType const *tensor, // tensor to read from
+                                                      unsigned flags,
+                                                      uint8_t *tbuf, // caller-supplied buffer
+                                                      size_t b, int h, int w, int d) // coordinates
     {
         if constexpr (is_generic) {
             return tileExt_priv::generic_tile_read<storage_type, Rank>(tensor, flags, tbuf, b, h, w, d);
@@ -212,10 +212,10 @@ template <typename Linfo> struct tile_methods {
         }
     }
 
-    static inline void tile_write(LayoutTensorType *tensor, // tensor to write to
-                                  unsigned flags,
-                                  uint8_t const *tbuf, // caller-supplied buffer
-                                  size_t b, int h, int w, int d)
+    API_EXPORT static inline void tile_write(LayoutTensorType *tensor, // tensor to write to
+                                             unsigned flags,
+                                             uint8_t const *tbuf, // caller-supplied buffer
+                                             size_t b, int h, int w, int d)
     {
         if constexpr (is_generic) {
             tileExt_priv::generic_tile_write<storage_type, Rank>(tensor, flags, tbuf, b, h, w, d);
@@ -223,7 +223,7 @@ template <typename Linfo> struct tile_methods {
             unsupported_write(tensor);
         }
     }
-    static constexpr unsigned tile_support_bits()
+    API_EXPORT static constexpr unsigned tile_support_bits()
     {
         if constexpr (is_generic) {
             return tile_support_flags_for<0, storage_type>::value;
@@ -247,7 +247,7 @@ template <typename Linfo> struct tile_methods_r4flat {
                                       unsigned flags,
                                       uint8_t const *tbuf, // caller-supplied buffer
                                       size_t b, int h, int w, int d);
-    static constexpr unsigned tile_support_bits()
+    API_EXPORT static constexpr unsigned tile_support_bits()
     {
         using storage_type = typename Linfo::storage_type;
         return tile_support_flags_for<Tensor::tile_fast, storage_type>::value;
@@ -275,7 +275,7 @@ template <typename Linfo> struct tile_methods_r4crouton {
                                       unsigned flags,
                                       uint8_t const *tbuf, // caller-supplied buffer
                                       size_t b, int h, int w, int d);
-    static constexpr unsigned tile_support_bits()
+    API_EXPORT static constexpr unsigned tile_support_bits()
     {
         using storage_type = typename Linfo::storage_type;
         constexpr unsigned direct = Tensor::tile_direct;
@@ -300,7 +300,7 @@ template <> struct tile_methods<Ldefs::Crouton_32> : public tile_methods_r4crout
 
 // write_tile_strategy implementation (here, since it depends on the flag defs)
 
-inline void *Tensor::write_tile_strategy(unsigned flags, void *buffer, size_t b, int h, int w, int d)
+API_FUNC_EXPORT inline void *Tensor::write_tile_strategy(unsigned flags, void *buffer, size_t b, int h, int w, int d)
 {
     unsigned const newflags = (flags & tileExt::write_strategy_keep) | tileExt::write_strategy;
     void const *const res = const_cast<Tensor &>(*this).read_tile(newflags, buffer, b, h, w, d);
@@ -311,16 +311,17 @@ inline void *Tensor::write_tile_strategy(unsigned flags, void *buffer, size_t b,
 // These could be moved inside the classes, provided the "tile_read/write" functions are declared above that,
 // and any specializations of it are defined before the tensor classes are specialized.
 template <typename Linfo>
-void const *LayoutTensor<Linfo>::read_tile(unsigned flags, void *buffer, size_t b, int h, int w, int d) const
+API_FUNC_EXPORT void const *LayoutTensor<Linfo>::read_tile(unsigned flags, void *buffer, size_t b, int h, int w,
+                                                           int d) const
 {
     return (void const *)hnnx::tileExt_priv::tile_methods<Linfo>::tile_read(this, flags, (uint8_t *)buffer, b, h, w, d);
 }
 template <typename Linfo>
-void LayoutTensor<Linfo>::write_tile(unsigned flags, void const *buffer, size_t b, int h, int w, int d)
+API_FUNC_EXPORT void LayoutTensor<Linfo>::write_tile(unsigned flags, void const *buffer, size_t b, int h, int w, int d)
 {
     hnnx::tileExt_priv::tile_methods<Linfo>::tile_write(this, flags, (uint8_t const *)buffer, b, h, w, d);
 }
-template <typename Linfo> unsigned LayoutTensor<Linfo>::tile_support_bits() const
+template <typename Linfo> API_FUNC_EXPORT unsigned LayoutTensor<Linfo>::tile_support_bits() const
 {
     return hnnx::tileExt_priv::tile_methods<Linfo>::tile_support_bits();
 }
@@ -367,7 +368,7 @@ template <unsigned NVECS> struct aligned_buffer_base {
         HVX_Vector varr[NVECS];
 #endif
     };
-    void *arr_addr() const
+    API_EXPORT void *arr_addr() const
     {
         if constexpr (manual_align) {
             size_t tmp = size_t(&u32arr[0]);
@@ -413,8 +414,8 @@ template <unsigned NBUFS, unsigned NVECS> struct tile_buffers_template : public 
     }
 #endif
 
-    uint8_t *buf(unsigned i = 0) { return reinterpret_cast<uint8_t *>(this->arr_addr()) + NVECS * 128 * i; };
-    uint8_t const *buf(unsigned i = 0) const
+    API_EXPORT uint8_t *buf(unsigned i = 0) { return reinterpret_cast<uint8_t *>(this->arr_addr()) + NVECS * 128 * i; };
+    API_EXPORT uint8_t const *buf(unsigned i = 0) const
     {
         return reinterpret_cast<uint8_t const *>(this->arr_addr()) + NVECS * 128 * i;
     };
@@ -447,18 +448,18 @@ template <unsigned int RANK = 4> class TileStoreWindowBase {
     size_t strides[RANK];
 
   public:
-    inline unsigned win_dim(int i) const { return winsize[i]; }
-    inline unsigned full_dim(int i) const { return dims[i]; }
-    inline size_t stride(int i) const { return strides[i]; }
-    void *addr_base() const { return ptr; }
-    void *win_base() const { return ptrw; }
+    API_EXPORT inline unsigned win_dim(int i) const { return winsize[i]; }
+    API_EXPORT inline unsigned full_dim(int i) const { return dims[i]; }
+    API_EXPORT inline size_t stride(int i) const { return strides[i]; }
+    API_EXPORT void *addr_base() const { return ptr; }
+    API_EXPORT void *win_base() const { return ptrw; }
     // this is to support Tensor::get_dims()
-    std::pair<size_t const *, size_t> get_windims() const noexcept { return {winsize, RANK}; }
+    API_EXPORT std::pair<size_t const *, size_t> get_windims() const noexcept { return {winsize, RANK}; }
 
     // set the descriptor up with  specified 'flat' tensor
     // for the output (described as pointer and oshape)
 
-    TileStoreWindowBase(Tensor &otensor, TensorShape<RANK> const &out_shape, unsigned elbytes)
+    API_EXPORT TileStoreWindowBase(Tensor &otensor, TensorShape<RANK> const &out_shape, unsigned elbytes)
     {
         ptr = ptrw = otensor.raw_data();
         size_t stride = elbytes;
@@ -472,7 +473,7 @@ template <unsigned int RANK = 4> class TileStoreWindowBase {
         elsize = elbytes;
     }
 
-    TileStoreWindowBase(Tensor &otensor, std::array<size_t, RANK> out_dims, unsigned elbytes)
+    API_EXPORT TileStoreWindowBase(Tensor &otensor, std::array<size_t, RANK> out_dims, unsigned elbytes)
     {
         ptr = ptrw = otensor.raw_data();
         size_t stride = elbytes;
@@ -490,8 +491,8 @@ template <unsigned int RANK = 4> class TileStoreWindowBase {
     // might be worth writing this out as a single 'for' loop.
 
     template <typename ITType>
-    TileStoreWindowBase(Tensor &otensor, ITType const &itens, TensorShape<RANK> const &offset,
-                        TensorShape<RANK> const &out_shape, unsigned elbytes)
+    API_EXPORT TileStoreWindowBase(Tensor &otensor, ITType const &itens, TensorShape<RANK> const &offset,
+                                   TensorShape<RANK> const &out_shape, unsigned elbytes)
         : TileStoreWindowBase(otensor, out_shape, elbytes)
     {
         set_window(itens, offset);
@@ -501,7 +502,7 @@ template <unsigned int RANK = 4> class TileStoreWindowBase {
     // from the given ShapeTensor.
     // 'tens' can also be a Shape<4>.
     //
-    template <typename TType> inline void set_window(TType const &tens, TensorShape<RANK> const &offset)
+    template <typename TType> API_EXPORT inline void set_window(TType const &tens, TensorShape<RANK> const &offset)
     {
         size_t const *windims;
         size_t tens_rank = 0;
@@ -549,17 +550,17 @@ template <unsigned int RANK = 4> class TileStoreWindowBase {
 
 template <unsigned ELBYTES, unsigned RANK = 4> class TileStoreWindow : public TileStoreWindowBase<RANK> {
   public:
-    TileStoreWindow(Tensor &otensor, TensorShape<RANK> const &out_shape)
+    API_EXPORT TileStoreWindow(Tensor &otensor, TensorShape<RANK> const &out_shape)
         : TileStoreWindowBase<RANK>(otensor, out_shape, ELBYTES)
     {
     }
-    TileStoreWindow(Tensor &otensor, std::array<size_t, RANK> out_dims)
+    API_EXPORT TileStoreWindow(Tensor &otensor, std::array<size_t, RANK> out_dims)
         : TileStoreWindowBase<RANK>(otensor, out_dims, ELBYTES)
     {
     }
     template <typename ITType>
-    TileStoreWindow(Tensor &otensor, ITType const &itens, TensorShape<RANK> const &offset,
-                    TensorShape<RANK> const &out_shape)
+    API_EXPORT TileStoreWindow(Tensor &otensor, ITType const &itens, TensorShape<RANK> const &offset,
+                               TensorShape<RANK> const &out_shape)
         : TileStoreWindowBase<RANK>(otensor, itens, offset, out_shape, ELBYTES)
     {
     }
@@ -587,7 +588,7 @@ template <unsigned ELBYTES, unsigned RANK = 4> class TileStoreWindow : public Ti
     API_EXPORT void write_tile(unsigned flags, void const *tiledata, size_t b, int h, int w, int d);
 
     // this is to support element_addr virtual method in  TileStoreWindowTensor
-    void *element_addr(SIdx const indices[RANK]) const
+    API_EXPORT void *element_addr(SIdx const indices[RANK]) const
     {
         int offset = 1;
         for (int i = 0; i < RANK - 1; ++i) {
@@ -627,29 +628,29 @@ template <DType DT> class TileStoreWindowTensor : public FakeTensor {
         using element_type = typename dtype_traits<dtype>::element_type;
         using raw_type = typename dtype_traits<dtype>::raw_type;
     };
-    TileStoreWindowTensor(Tensor &otensor, TensorShape<4> const &out_shape)
+    API_EXPORT TileStoreWindowTensor(Tensor &otensor, TensorShape<4> const &out_shape)
         : FakeTensor(nullptr), ts_window(otensor, out_shape), intfc(otensor.interface())
     {
     }
 
     template <typename ITType>
-    TileStoreWindowTensor(Tensor &otensor, ITType const &itens, TensorShape<4> const &offset,
-                          TensorShape<4> const &out_shape)
+    API_EXPORT TileStoreWindowTensor(Tensor &otensor, ITType const &itens, TensorShape<4> const &offset,
+                                     TensorShape<4> const &out_shape)
         : FakeTensor(nullptr), ts_window(otensor, itens, offset, out_shape), intfc(otensor.interface())
     {
     }
 
-    template <typename TType> inline void set_window(TType const &tens, TensorShape<4> const &offset)
+    template <typename TType> API_EXPORT inline void set_window(TType const &tens, TensorShape<4> const &offset)
     {
         ts_window.template set_window<TType>(tens, offset);
     }
-    template <typename... ind_types> inline element_type *get_raw_addr(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline element_type *get_raw_addr(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return (element_type *)element_ptr(Rank, coords.data());
     }
-    template <typename... ind_types> inline element_type &get_raw(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline element_type &get_raw(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
@@ -657,46 +658,50 @@ template <DType DT> class TileStoreWindowTensor : public FakeTensor {
     }
 
   protected:
-    virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept override
+    API_EXPORT virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept override
     {
         assert(rank == Rank);
         return ts_window.element_addr(coords_in);
     }
 
   public:
-    virtual const size_t rank() const noexcept override { return Rank; }
-    virtual Interface const &interface() const noexcept override final { return intfc; }
-    virtual const size_t dim(size_t index) const noexcept override { return ts_window.win_dim(index); }
-    virtual std::pair<size_t const *, size_t> get_dims() const noexcept override { return ts_window.get_windims(); }
+    API_EXPORT virtual const size_t rank() const noexcept override { return Rank; }
+    API_EXPORT virtual Interface const &interface() const noexcept override final { return intfc; }
+    API_EXPORT virtual const size_t dim(size_t index) const noexcept override { return ts_window.win_dim(index); }
+    API_EXPORT virtual std::pair<size_t const *, size_t> get_dims() const noexcept override
+    {
+        return ts_window.get_windims();
+    }
 
-    virtual inline bool set_dims(const size_t dims[]) override final
+    API_EXPORT virtual inline bool set_dims(const size_t dims[]) override final
     {
         for (int i = 0; i < Rank; i++) {
             assert(dims[i] == ts_window.win_dim(i));
         }
         return false;
     }
-    virtual inline bool set_dims(const Tensor &prototype) override final
+    API_EXPORT virtual inline bool set_dims(const Tensor &prototype) override final
     {
         auto [dims_p, dims_n] = prototype.get_dims();
         assert(dims_n == Rank);
         return set_dims(dims_p);
     }
 
-    virtual DTypeScaleOff get_dtype_intfc() const noexcept override { return DTypeScaleOff(DT, intfc); }
+    API_EXPORT virtual DTypeScaleOff get_dtype_intfc() const noexcept override { return DTypeScaleOff(DT, intfc); }
 
-    virtual void write_tile(unsigned flags, void const *buffer, size_t b, int h, int w, int d) override final
+    API_EXPORT virtual void write_tile(unsigned flags, void const *buffer, size_t b, int h, int w, int d) override final
     {
         ts_window.write_tile(flags, buffer, b, h, w, d);
     }
     // We don't support actually doing read_tile, but we need to implement it in case someone calls
     // write_tile_strategy.
-    virtual void const *read_tile(unsigned flags, void *buffer, size_t b, int h, int w, int d) const override final
+    API_EXPORT virtual void const *read_tile(unsigned flags, void *buffer, size_t b, int h, int w,
+                                             int d) const override final
     {
         assert((flags & write_strategy) != 0);
         return buffer; // always fail on write_tile_strategy.
     }
-    virtual unsigned tile_support_bits() const override final
+    API_EXPORT virtual unsigned tile_support_bits() const override final
     {
         return hnnx::tileExt_priv::tile_support_flags_for<tile_fast, element_type>::value;
     }
@@ -721,7 +726,7 @@ template <> class TileStoreWindowTensorGeneric<4> : public TileStoreWindowTensor
 // All tile operations are 8 rows high, even on 32-bit tiles.
 //
 // This is instantiated for ELBYTES = 1,2,4 in tile_extract.cc
-template <unsigned ELBYTES> int raw_copy_by_tiles(Tensor &out, Tensor const &in, unsigned flags = 0);
+template <unsigned ELBYTES> API_FUNC_EXPORT int raw_copy_by_tiles(Tensor &out, Tensor const &in, unsigned flags = 0);
 
 // functor base class for unary_by_tiles.
 // note, the 'rows' parameter indicates the number of rows to process, 1...8.
@@ -729,7 +734,7 @@ template <unsigned ELBYTES> int raw_copy_by_tiles(Tensor &out, Tensor const &in,
 // it's a good idea to loop only over this many rows of the tile.
 class UnaryTileFunctor {
   public:
-    virtual void oper(void *outp, void const *inp, int rows) const = 0;
+    API_EXPORT virtual void oper(void *outp, void const *inp, int rows) const = 0;
 };
 // unary_via_tiles<ELBYTES>: this reads all of 'in', and writes an output tensor
 // 'out', using tile interface; Caller must supply a subclass of UnaryTileFunctor
@@ -743,7 +748,7 @@ class UnaryTileFunctor {
 // (looping is over the output dims).
 //
 template <unsigned ELBYTES>
-int unary_by_tiles(Tensor &out, Tensor const &in, UnaryTileFunctor const &f, unsigned flags = 0);
+API_FUNC_EXPORT int unary_by_tiles(Tensor &out, Tensor const &in, UnaryTileFunctor const &f, unsigned flags = 0);
 
 } // namespace tileExt
 

@@ -19,9 +19,11 @@ extern "C" {
 #endif  // __cplusplus
 
 // Provide values to use for API version
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define QNN_DELEGATE_API_VERSION_MAJOR 0
-#define QNN_DELEGATE_API_VERSION_MINOR 16
+#define QNN_DELEGATE_API_VERSION_MINOR 18
 #define QNN_DELEGATE_API_VERSION_PATCH 0
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 /// A struct which is used to provide a version number using 3 values:
 /// major, minor, patch
@@ -52,6 +54,17 @@ typedef enum TfLiteQnnDelegateLogLevel {  // NOLINT(modernize-use-using)
   kLogLevelVerbose = 4,
   kLogLevelDebug = 5,
 } TfLiteQnnDelegateLogLevel;
+
+/// Options to set Graph Priority. This is directly mapped to Qnn_Priority_t.
+/// Please refer to QNN SDK for additional information.
+typedef enum TfLiteQnnDelegateGraphPriority {  // NOLINT(modernize-use-using)
+  kQnnPriorityDefault = 0,
+  kQnnPriorityLow,
+  kQnnPriorityNormal,
+  kQnnPriorityNormalHigh,
+  kQnnPriorityHigh,
+  kQnnPriorityUndefined,
+} TfLiteQnnDelegateGraphPriority;
 
 /// Options to profile the QNN Delegate execution.
 typedef enum TfLiteQnnDelegateProfilingOptions {  // NOLINT(modernize-use-using)
@@ -113,8 +126,8 @@ typedef enum TfLiteQnnDelegateDspPerformanceMode {  // NOLINT(modernize-use-usin
 ///
 ///   Note that this is the default strategy.
 ///
-///   For example, users can vote before inferences, and release after all
-///   inference done.
+///   For example, users can vote before inference starts, and release after all
+///   invocations are complete.
 ///
 ///   ~~~~~~~~~~~~~{.cpp}
 ///      TfLiteQnnDelegateSetPerf(delegate, kPerformanceVote);
@@ -122,8 +135,8 @@ typedef enum TfLiteQnnDelegateDspPerformanceMode {  // NOLINT(modernize-use-usin
 ///      TfLiteQnnDelegateSetPerf(delegate, kPerformanceRelease);
 ///   ~~~~~~~~~~~~~
 ///
-///   **AUTO**: QNN Delegate vote before an inference, and release after an idle
-///   interval.
+///   **AUTO**: QNN Delegate votes before starting inference, and releases after
+///   an idle interval.
 typedef enum TfLiteQnnDelegateHtpPerfCtrlStrategy {  // NOLINT(modernize-use-using)
   kHtpPerfCtrlManual = 0,
   kHtpPerfCtrlAuto = 1,
@@ -214,14 +227,26 @@ typedef struct {  // NOLINT
   TfLiteQnnDelegateHtpPdSession pd_session;
   /// The default optimization strategy will optimize the graph for inference.
   TfLiteQnnDelegateHtpOptimizationStrategy optimization_strategy;
-  /// With using short conv hmx, we might have better performance,
+  /// When using short conv hmx, one might have better performance,
   /// but convolution that have short depth and/or weights that are not
   /// symmetric could exhibit inaccurate results.
   bool useConvHmx;
-  /// With using fold relu, we might have better performance, this optimization
-  /// is correct when quantization ranges for convolution are equal or subset of
-  /// the Relu operation.
+  /// When using fold relu, one might have better performance. This optimization
+  /// is correct when quantization ranges for convolution are equal to or are
+  /// subset of the Relu operation.
   bool useFoldRelu;
+  /// Option to set VTCM size in MB. This is directly mapped to
+  /// QNN_HTP_GRAPH_CONFIG_OPTION_VTCM_SIZE under QnnHtpGraph_ConfigOption_t. If
+  /// VTCM size is set to 0, the default VTCM size will be used.
+  /// If VTCM size is greater than VTCM size available for this device,
+  /// it will be set to the maximum VTCM size for this device.
+  uint32_t vtcm_size;
+  /// Option to set number of HVX threads. This is directly mapped to
+  /// QNN_HTP_GRAPH_CONFIG_OPTION_NUM_HVX_THREADS under
+  /// QnnHtpGraph_ConfigOption_t. If this this option is set to 0, the default
+  /// number of HVX threads will be used. If input exceeds the max number of HVX
+  /// threads, the maximum number of threads supported will be used.
+  uint32_t num_hvx_threads;
 } TfLiteQnnDelegateHtpBackendOptions;
 
 // clang-format off
@@ -233,7 +258,9 @@ typedef struct {  // NOLINT
     kHtpUnsignedPd,           /*pd_session*/              \
     kHtpOptimizeForInference, /*optimization_strategy*/   \
     false,                    /*useConvHmx*/              \
-    false                     /*useFoldRelu*/             \
+    false,                    /*useFoldRelu*/             \
+    0,                        /*vtcm_size*/               \
+    0,                        /*num_hvx_threads*/         \
   }
 // clang-format on
 
@@ -256,7 +283,7 @@ typedef struct {  // NOLINT
     kDspDefault,              /*performance_mode*/        \
     kDspPerfCtrlManual,       /*perf_ctrl_strategy*/      \
     kDspUnsignedPd,           /*pd_session*/              \
-    kDspStatic,               /*encoding*/              \
+    kDspStatic,               /*encoding*/                \
   }
 // clang-format on
 
@@ -305,17 +332,17 @@ typedef struct {  // NOLINT
 typedef struct {  // NOLINT
   /// Set ops not to be delegated manually based on the op id(s).
   /// To obtain all the op ids, please refer to tensorflow/lite/builtin_ops.h.
-  /// Notice that we skip *ALL* same type in \ref skip_delegate_ops array.
-  /// For example, if you set skip
-  /// SquaredDifference in your model, all of SquaredDifference ops in the
+  /// Notice that we skip all of with the types specified in the
+  /// \ref skip_delegate_ops array. For example, if you set skip to include
+  /// SquaredDifference, all instances of SquaredDifference ops in the
   /// model will not be delegated.
   const int* skip_delegate_ops;
-  /// Indicate the length of \ref skip_delegate_ops array
+  /// Indicates the length of \ref skip_delegate_ops array.
   uint32_t skip_delegate_ops_nr;
-  /// Set node not to be delegated manually based on the node id(s).
-  /// Node id can be obtained by node's location information in .tflite
+  /// Set node IDs not to be delegated.
+  /// Node id can be obtained by node's location information in .tflite.
   const int* skip_delegate_node_ids;
-  /// Indicate the length of \ref skip_delegate_node_ids array
+  /// Indicates the length of \ref skip_delegate_node_ids array.
   uint32_t skip_delegate_node_ids_nr;
 } TfLiteQnnDelegateSkipOption;
 
@@ -342,17 +369,17 @@ typedef struct {  // NOLINT
   const char* skel_library_dir;
 
   /// Optional backend specific options for the GPU backend. Only used when
-  /// selecting \ref TfLiteQnnDelegateBackendType.kGpuBackend, else will be
+  /// selecting \ref TfLiteQnnDelegateBackendType.kGpuBackend, otherwise will be
   /// ignored.
   TfLiteQnnDelegateGpuBackendOptions gpu_options;
 
   /// Optional backend specific options for the HTP backend. Only used when
-  /// selecting \ref TfLiteQnnDelegateBackendType.kHtpBackend, else will be
+  /// selecting \ref TfLiteQnnDelegateBackendType.kHtpBackend, otherwise will be
   /// ignored.
   TfLiteQnnDelegateHtpBackendOptions htp_options;
 
   /// Optional backend specific options for the DSP backend. Only used when
-  /// selecting \ref TfLiteQnnDelegateBackendType.kDspBackend, else will be
+  /// selecting \ref TfLiteQnnDelegateBackendType.kDspBackend, otherwise will be
   /// ignored.
   TfLiteQnnDelegateDspBackendOptions dsp_options;
 
@@ -365,24 +392,23 @@ typedef struct {  // NOLINT
   /// Optional structure to specify op packages loaded and used by the backend.
   TfLiteQnnDelegateOpPackageOptions op_package_options;
 
-  /// Tensor dump output path. If a path is given, Delegate would write
+  /// Tensor dump output path. If a path is given, Delegate will write
   /// outputs of each OP there.
-  /// In ALL cases, we don't recommend to set this option.
-  /// This option exist just for debugging some accuracy issues.
+  /// We don't recommend using this option. It exists only for debugging
+  /// accuracy issues.
   const char* tensor_dump_output_path;
 
-  /// Specifies the directory of a compiled model.  Signals intent to either:
+  /// Specifies the directory of a compiled model. Signals intent to either:
   ///   * Save the model if the file doesn't exist, or
   ///   * Restore model from the file.
   ///
   /// Model Cache specific options. Only used when setting \ref model_token,
-  /// else will be ignored.
+  /// otherwise will be ignored.
   ///
-  /// At this moment, we recommend that delegate instances with/without cache
-  /// should not be mixed in the same process, or at least an instance
-  /// <b>without</b> cache is initialized, inferencing, and *terminate* before
-  /// an instance with cache, in order to make sure all resources are prepared
-  /// well.
+  /// We don't recommend that delegate instances with/without cache be mixed in
+  /// same process, unless an instance <b>without</b> cache is initialized,
+  /// invoked, and *terminated* before an instance with cache is used in order
+  /// to make sure all resources are prepared correctly.
   ///
   ///   ~~~~~~~~~~~~~{.cpp}
   ///
@@ -396,13 +422,13 @@ typedef struct {  // NOLINT
   ///
   ///   // after this, another delegate_with_cache can be used in the same
   ///   // process, though not recommended at this moment.
-  ///  TfLiteDelegate* delegate_with_cache =
-  ///  TfLiteQnnDelegateCreate(&options_with_cache);
+  ///   TfLiteDelegate* delegate_with_cache =
+  ///   TfLiteQnnDelegateCreate(&options_with_cache);
   ///
-  ///  // another interpreter
-  ///  interpreter_1->ModifyGraphWithDelegate(delegate_with_cache);
+  ///   // another interpreter
+  ///   interpreter_1->ModifyGraphWithDelegate(delegate_with_cache);
   ///
-  ///  // more delegates...etc.
+  ///   // more delegates...etc.
   ///   ~~~~~~~~~~~~~
   const char* cache_dir;
   /// The unique null-terminated token string that acts as a ‘namespace’ for all
@@ -410,11 +436,13 @@ typedef struct {  // NOLINT
   /// constants). For an example of how to generate this from a TFLite model,
   /// see StrFingerprint() in lite/delegates/serialization.h.
   ///
-  /// Model Cache specific options. Only used when setting \ref cache_dir, else
-  /// will be ignored.
+  /// Model Cache specific options. Only used when setting \ref cache_dir,
+  /// otherwise will be ignored.
   const char* model_token;
-  /// Option to skip node by specifying node types or node ids
+  /// Option to skip node by specifying node types or node ids.
   TfLiteQnnDelegateSkipOption skip_options;
+  /// Option to set graph priority.
+  TfLiteQnnDelegateGraphPriority graph_priority;
 } TfLiteQnnDelegateOptions;
 
 // clang-format off
@@ -432,17 +460,21 @@ typedef struct {  // NOLINT
     "",                                   /*tensor_dump_output_path*/   \
     "",                                   /*cache_dir*/                 \
     "",                                   /*model_token*/               \
-    QNN_DELEGATE_SKIP_OPTION_INIT         /*skip_options*/              \
+    QNN_DELEGATE_SKIP_OPTION_INIT,        /*skip_options*/              \
+    kQnnPriorityDefault,                  /*graph_priority*/            \
   }
 // clang-format on
 
 typedef int32_t  // NOLINT(modernize-use-using)
     TfLiteQnnDelegateCapabilityStatus;
+
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 /// Return by TfLiteQnnDelegateHasCapability() if the capability is supported.
 #define TfLiteQnnDelegateCapabilitySupported 1
 /// Return by TfLiteQnnDelegateHasCapability() if the capability is not
 /// supported.
 #define TfLiteQnnDelegateCapabilityNotSupported 0
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 /// Defines possible QNN Delegate capabilities.
 typedef enum TfLiteQnnDelegateCapability {  // NOLINT(modernize-use-using)
@@ -464,7 +496,7 @@ QNN_DELEGATE_CAPI_EXPORT TfLiteDelegate* TfLiteQnnDelegateCreate(
 QNN_DELEGATE_CAPI_EXPORT void TfLiteQnnDelegateDelete(TfLiteDelegate* delegate);
 
 /// Manually vote or release performance mode. "Vote" to request hardware to
-/// obey the performance mode setting as it can as possible. "Release" to
+/// obey the performance mode setting as soon as possible. "Release" to
 /// release the vote. Note that this API only work for HTP/DSP backend with \ref
 /// kHtpPerfCtrlManual or \ref kDspPerfCtrlManual. Return true for success,
 /// false for failure.
@@ -483,10 +515,10 @@ TfLiteQnnDelegateHasCapability(const TfLiteQnnDelegateCapability cap);
 /// failure.
 ///
 /// It will perform a vote after a successful update. If the strategy of
-/// performance controling is **Manaul**, the new mode takes effect before this
+/// performance controlling is **manual**, the new mode takes effect before this
 /// API returns.
 ///
-/// Note that this API cannot be called during inferecing, and this is an
+/// Note that this API cannot be called during graph invocation, and this is an
 /// experimental feature.
 QNN_DELEGATE_CAPI_EXPORT bool TfLiteQnnDelegateUpdateDspPerfMode(
     TfLiteDelegate* delegate, const TfLiteQnnDelegateDspPerformanceMode mode);
@@ -502,8 +534,8 @@ QNN_DELEGATE_CAPI_EXPORT QnnDelegateApiVersion TfLiteQnnDelegateGetApiVersion();
 
 /// Allocate specific tensors (usually graph inputs and outputs) on shared
 /// memory. Users are responsible to allocate "enough" tensor bytes, and set
-/// alignment as kDefaultTensorAlignment. The fuction returns a valid pointer if
-/// allocation is successful.
+/// alignment as kDefaultTensorAlignment. The function returns a valid pointer
+/// if allocation is successful.
 ///
 /// Note that this is an experimental feature.
 QNN_DELEGATE_CAPI_EXPORT void* TfLiteQnnDelegateAllocCustomMem(

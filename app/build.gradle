@@ -3,14 +3,15 @@ plugins {
 }
 
 android {
-    compileSdk 33
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.xiaomi.stablediffusion"
         minSdk 30
-        targetSdk 33
+        targetSdk 35
         versionCode 1
         versionName "1.0.0"
+        ndkVersion "26.0.10792818"
 
         ndk {
             abiFilters "arm64-v8a"
@@ -27,6 +28,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
     compileOptions {
@@ -42,6 +44,7 @@ android {
     buildFeatures {
         viewBinding true
     }
+    namespace 'com.xiaomi.stablediffusion'
 }
 
 dependencies {

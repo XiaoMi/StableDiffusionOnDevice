@@ -184,6 +184,28 @@ QNN_API
 Qnn_ErrorHandle_t QnnBackend_create(Qnn_LogHandle_t logger,
                                     const QnnBackend_Config_t** config,
                                     Qnn_BackendHandle_t* backend);
+/**
+ * @brief A function to set/modify configuration options on an already generated backend.
+ *
+ * @param[in] backend A backend handle.
+ *
+ * @param[in] config Pointer to a NULL terminated array of config option pointers.
+ *                   NULL is allowed and indicates no config options are provided.
+ *                   All config options have default value, in case not provided.
+ *                   If same config option type is provided multiple times,
+ *                   the last option value will be used.
+ *
+ * @return Error code:
+ *         - QNN_SUCCESS: no error is encountered
+ *         - QNN_BACKEND_ERROR_INVALID_HANDLE: _backend_ is not a valid handle
+ *         - QNN_BACKEND_ERROR_INVALID_CONFIG: at least one config option is invalid
+ *         - QNN_BACKEND_ERROR_NOT_SUPPORTED: an optional feature is not supported
+ *
+ * @note Use corresponding API through QnnInterface_t.
+ */
+QNN_API
+Qnn_ErrorHandle_t QnnBackend_setConfig(Qnn_BackendHandle_t backend,
+                                       const QnnBackend_Config_t** config);
 
 /**
  * @brief Get the QNN API version.

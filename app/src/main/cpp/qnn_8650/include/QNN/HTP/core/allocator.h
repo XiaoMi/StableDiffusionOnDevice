@@ -15,6 +15,7 @@
 #include "dtype_enum.h"
 #include "weak_linkage.h"
 #include "macros_attribute.h"
+#include "forward_classes.h"
 
 enum class MemoryClass {
     Plain,
@@ -79,7 +80,7 @@ class Allocator {
     // AllocComplete allows no further allocations. A deserialized allocator
     // is in this state.
 
-    Allocator(Mode mode_in, Graph &graph_in) : graph(graph_in), mode(mode_in){};
+    API_EXPORT Allocator(Mode mode_in, Graph &graph_in) : graph(graph_in), mode(mode_in){};
     API_EXPORT virtual ~Allocator() = 0;
 
     Graph &graph;
@@ -122,20 +123,23 @@ class Allocator {
     API_EXPORT virtual void allocate_persistent_blocks(void **table, size_t nblocks, size_t block_size,
                                                        size_t alignment, unsigned options);
 
-    inline void *allocate(const void *oldval, size_t block_size, size_t alignment, MemoryClass memclass,
-                          unsigned options, DType dtype)
+    API_EXPORT inline void *allocate(const void *oldval, size_t block_size, size_t alignment, MemoryClass memclass,
+                                     unsigned options, DType dtype)
     {
-        void *tmp = (void *)oldval;
+        PUSH_WARNING()
+        DISABLE_WARNING("-Wcast-qual", MSVC_NO_EQUIV)
+        void *tmp = const_cast<void *>(oldval);
+        POP_WARNING()
         allocate_n(&tmp, 1, block_size, alignment, memclass, options, dtype);
         return tmp;
     }
 
-    Mode get_mode() const { return mode; }
+    API_EXPORT Mode get_mode() const { return mode; }
     API_EXPORT virtual void set_mode(Mode new_mode);
 
-    virtual void set_tcm_pool(void *base, size_t size) = 0;
+    API_EXPORT virtual void set_tcm_pool(void *base, size_t size);
 
-    virtual void set_largest_memory_alloc_size(size_t size) = 0;
+    API_EXPORT virtual void set_largest_memory_alloc_size(size_t size);
 
     /*
 	 * Serialize all the internal data for the allocator.
@@ -143,33 +147,12 @@ class Allocator {
 	 */
     API_EXPORT virtual void serialize(Serializer &) const;
     /*
-	 * Deserialize the allocator, restore internal data from buffer.
-	 * Actually you maybe just want the deserializing constructor....
-	 */
-    virtual void deserialize(Deserializer &, unsigned char *const weight_data = nullptr,
-                             const size_t weight_length = 0) = 0;
-    /*
-	 * Given a pointer to a block of data, and its size serialize the memory.
-	 * This might be serialized as "this is a persistent memory allocation and here is all the persistent data value"
-	 * Or it might be serialized as "This is something in a certain pool of memory, here's the offset."
-	 */
-    API_EXPORT virtual void serialize_block(Serializer &, const void *addr, const size_t block_size);
-    /*
-	 * Given a serialized representation of data, turn it back into a pointer.
-	 */
-    virtual void *deserialize_block(Deserializer &) = 0;
+     * Deserialize the allocator, restore internal data from buffer.
+     */
+    API_EXPORT virtual void deserialize(Deserializer &, unsigned char *const weight_data = nullptr,
+                                        const size_t weight_length = 0);
 
-    // virtual methods to serialize/deserialize n blocks at once. Allocatoe subclasses do not need to define
-    // these, the default mathods just call the _block methods in a loop. But they will reduce code
-    // in the templated tensor methods.
-    // Tensors should use these multi-block methods consistently in serialize and deserialize.
-    // this allows the allocator to use a different strategy from the 'blocks' case.
-
-    API_EXPORT virtual void serialize_blocks(Serializer &, const void *const *table, const size_t block_size,
-                                             size_t nblocks);
-    API_EXPORT virtual void deserialize_blocks(Deserializer &, const void **table, size_t nblocks);
-
-    static inline constexpr size_t fixup_alignment(size_t align)
+    API_EXPORT static inline constexpr size_t fixup_alignment(size_t align)
     {
         static_assert(MIN_ALIGN >= 8 && (MIN_ALIGN & (MIN_ALIGN - 1)) == 0, "bad MIN_ALIGN");
         static_assert(MAX_ALIGN >= MIN_ALIGN && (MAX_ALIGN & (MAX_ALIGN - 1)) == 0, "bad MAX_ALIGN");
@@ -180,8 +163,11 @@ class Allocator {
         }
     }
 
-    static inline constexpr size_t round_up_align(size_t n, size_t align) { return (n + (align - 1)) & ~(align - 1); }
-    template <typename T> static inline T *round_up_align(T *p, size_t align)
+    API_EXPORT static inline constexpr size_t round_up_align(size_t n, size_t align)
+    {
+        return (n + (align - 1)) & ~(align - 1);
+    }
+    template <typename T> API_EXPORT static inline T *round_up_align(T *p, size_t align)
     {
         return (T *)round_up_align((size_t)p, align);
     }
@@ -196,14 +182,8 @@ class Allocator {
 //
 class FakeAllocator : public Allocator {
   public:
-    FakeAllocator(Allocator::Mode mode_in, Graph &graph_in) : Allocator(mode_in, graph_in){};
+    API_EXPORT FakeAllocator(Allocator::Mode mode_in, Graph &graph_in) : Allocator(mode_in, graph_in){};
     API_EXPORT virtual ~FakeAllocator();
-
-    API_EXPORT virtual void set_tcm_pool(void *base, size_t size) override;
-    API_EXPORT virtual void set_largest_memory_alloc_size(size_t size) override;
-    API_EXPORT virtual void deserialize(Deserializer &, unsigned char *weight_data = nullptr,
-                                        size_t weight_length = 0) override;
-    API_EXPORT virtual void *deserialize_block(Deserializer &) override;
 };
 
 // this is an accessor which is used by the Dma 'Fill' operation
@@ -212,30 +192,30 @@ class FakeAllocator : public Allocator {
 // Maybe other things could be added later.
 
 class MemPoolRunTimeAccessor {
-    void *spill_area;
+    far_vm_ptr spill_area;
     fa::PoolDesc const *pool_table; // pool_table[0] is for poolid=1
     unsigned max_pool_id;
 
   public:
-    MemPoolRunTimeAccessor(void *spill_area_in, fa::PoolDesc const *pt, unsigned pt_size)
+    API_EXPORT MemPoolRunTimeAccessor(far_vm_ptr const spill_area_in, fa::PoolDesc const *const pt,
+                                      unsigned const pt_size)
         : spill_area(spill_area_in), pool_table(pt), max_pool_id(pt_size)
     {
     }
-    MemPoolRunTimeAccessor() : spill_area(nullptr), pool_table(nullptr), max_pool_id(0) {}
-    MemPoolRunTimeAccessor(MemPoolRunTimeAccessor const &) = default;
-    MemPoolRunTimeAccessor &operator=(MemPoolRunTimeAccessor const &) = default;
+    API_EXPORT MemPoolRunTimeAccessor() : spill_area(0), pool_table(nullptr), max_pool_id(0) {}
+    API_EXPORT MemPoolRunTimeAccessor(MemPoolRunTimeAccessor const &) = default;
+    API_EXPORT MemPoolRunTimeAccessor &operator=(MemPoolRunTimeAccessor const &) = default;
 
     // pool ids are >= 1, <= num_pools
-    constexpr unsigned num_pools() const { return max_pool_id; }
-    // map pool_id to base address of the data, for persistent pool.
-    // implementation in fa_alloc.h
-    char const *get_persistent_pool_base(unsigned pool_id) const;
-    bool get_is_weights(unsigned pool_id) const;
-    void *get_spill_area() const { return spill_area; }
+    API_EXPORT constexpr unsigned num_pools() const { return max_pool_id; }
+    // map pool_id to base address of the data, for persistent pool; also get 'is_weights' flag.
+    // implementation in runtime_alloc.h
+    std::pair<far_vm_ptr, bool> get_persistent_pool_base_iswts(unsigned pool_id) const;
+    API_EXPORT far_vm_ptr get_spill_area() const { return spill_area; }
 
     // used to construct the ConstExtentDescriptor during prep
     // implementation in fa_alloc.h
-    fa::PoolDesc const *get_descriptor(unsigned pool_id) const;
+    API_EXPORT fa::PoolDesc const *get_descriptor(unsigned pool_id) const;
 };
 
 } // namespace hnnx

@@ -17,19 +17,22 @@
 #include "op_register_types.h"
 #include "op_package_name.h"
 #include "template_help.h"
+#include "weak_linkage.h"
 
 #include <memory>
 #include <string>
 #include <utility>
 
 namespace hnnx {
+PUSH_VISIBILITY(default)
 
-const OpFactory make_op_custom_internal(const std::string_view op_name_in, const std::string_view type_tag,
-                                        op_reg_parms const &opreg_parms, bool is_external = false);
+API_EXPORT OpFactory make_op_custom_internal(const std::string_view op_name_in, const std::string_view type_tag,
+                                             op_reg_parms const &opreg_parms, bool is_external = false);
 
-extern const OpFactory make_op_custom(const std::string_view op_name_in, std::string_view const type_tag,
-                                      op_reg_parms const &opreg_parms);
+API_EXPORT OpFactory make_op_custom(const std::string_view op_name_in, std::string_view const type_tag,
+                                    op_reg_parms const &opreg_parms);
 
+POP_VISIBILITY()
 template <bool IS_SIMPLE> struct item_return {
 };
 
@@ -101,6 +104,7 @@ template <auto, int> struct ModifiedDerivedType;
     (hnnx::ConcatStr<hnnx::ConstexprStrLen(OP), hnnx::ConstexprStrLen(NMVRT) + hnnx::ConstexprStrLen(ARGS)>(           \
             OP, (hnnx::ConcatStr<hnnx::ConstexprStrLen(NMVRT), hnnx::ConstexprStrLen(ARGS)>(NMVRT, ARGS).data())))
 
+#ifndef OP_REG_COMPILE
 #define DEF_NATIVE_OP(F, OP, LINE) DEF_NATIVE_OP_NMVRT(F, F, OP, "", LINE)
 
 #define DEF_NATIVE_OP_NO_TCM_FOLDING(F, OP) DEF_NATIVE_OP_NMVRT_NO_TCM_FOLDING(F, F, OP, "")
@@ -112,6 +116,14 @@ template <auto, int> struct ModifiedDerivedType;
 #define DEF_NATIVE_OP_NMVRT_NO_TCM_FOLDING(F, W, OP, NMVRT)                                                            \
     APPEND_REG_OP_ELEM_NO_TCM_FOLDING(W, THIS_PKG_NAME_STR "::" OP,                                                    \
                                       TYPE_SUFFIX(OP, NMVRT, hnnx::ArgsTuples2<F>::inputTypeNames), false)
+
+#else
+#define DEF_NATIVE_OP(F, OP, LINE)                          __reg_op__(F, OP)<<<__FILE__, __LINE__>>>
+#define DEF_NATIVE_OP_NO_TCM_FOLDING(F, OP)                 __reg_op__(F, OP)<<<__FILE__, __LINE__>>>
+#define DEF_NATIVE_OP_NMVRT(F, W, OP, NMVRT, LINE)          __reg_op__(F, OP)<<<__FILE__, __LINE__>>>
+#define DEF_NATIVE_OP_NMVRT_NO_TCM_FOLDING(F, W, OP, NMVRT) __reg_op__(F, OP)<<<__FILE__, __LINE__>>>
+#endif
+
 // TCM folding is an optimization to reduce skel size, so we only need it for execute.
 #if defined(PREPARE_DISABLED) && !defined(TCM_FOLDING_DISABLED)
 #define REGISTER_OP(F, STR) DEF_NATIVE_OP(F, STR, __LINE__)

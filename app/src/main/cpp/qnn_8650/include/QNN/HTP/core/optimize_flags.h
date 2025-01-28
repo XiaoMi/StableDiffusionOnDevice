@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include "weak_linkage.h"
 
+#ifndef PREPARE_DISABLED
+
 PUSH_VISIBILITY(default)
 
 namespace hnnx {
@@ -93,9 +95,9 @@ struct OptimFlags {
 
       public:
         OptFlagState() : m_trigger(0), m_need_cse(false), m_need_cp(false) {}
-        inline void update(flags_t previous_pass_flags, // GraphOptPass.flags from the previous pass
-                           flags_t next_pass_flags, // GraphOptPass.flags from the next pass
-                           flags_t success_flags) // 'or' of all rules which succeeded in previous pass.
+        API_EXPORT inline void update(flags_t previous_pass_flags, // GraphOptPass.flags from the previous pass
+                                      flags_t next_pass_flags, // GraphOptPass.flags from the next pass
+                                      flags_t success_flags) // 'or' of all rules which succeeded in previous pass.
         {
             flags_t const trigs = m_trigger;
             flags_t next_trigs = trigs | (success_flags & (any_rule | cse_set_triggerA | cse_set_triggerB));
@@ -119,8 +121,8 @@ struct OptimFlags {
             m_need_cp = do_cp;
         }
 
-        inline bool need_cse() const { return m_need_cse; }
-        inline bool need_cp() const { return m_need_cp; }
+        API_EXPORT inline bool need_cse() const { return m_need_cse; }
+        API_EXPORT inline bool need_cp() const { return m_need_cp; }
     };
 
     // this is a trick to allow flags to be used in rules without namespace prefix
@@ -141,4 +143,5 @@ struct OptimFlags {
 
 POP_VISIBILITY()
 
+#endif
 #endif /* OPTIMIZE_FLAGS_H_ */

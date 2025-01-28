@@ -20,6 +20,7 @@
 
 #include "weak_linkage.h"
 #include "macros_attribute.h"
+#ifndef PREPARE_DISABLED
 PUSH_VISIBILITY(default)
 
 namespace oExp {
@@ -42,7 +43,7 @@ class opdef_accessor {
 
     API_EXPORT static OpRef get_input_of(ECtx &e, OpDef const *, int idx);
     API_EXPORT static OpRef get_output_of(ECtx &e, OpRef, int idx);
-    template <typename T> static T get_option(ECtx &e, hnnx::opname_tag_parm_t name);
+    template <typename T> API_EXPORT static T get_option(ECtx &e, hnnx::opname_tag_parm_t name);
     static void show_debug_message(ECtx &e, char const *why, char const *str)
     {
         if constexpr (build_options::WithDebugOpt)
@@ -929,9 +930,9 @@ template <typename OPEX> struct expr<Variant::producer_for, OPEX> : private opde
     inline bool eval(ECtx &e) const
     {
         std::string prefix_consumer_opname;
-        hnnx::get_opname_with_pkg_prefix(prefix_consumer_opname, m_consumer_opname.c_str());
+        const char *const opname = hnnx::get_opname_with_pkg_prefix(prefix_consumer_opname, m_consumer_opname.c_str());
         OpDef const &prod_opdef = get_opdef_oexpr<OPEX>(e, m_prod_opexpr);
-        return hnnx::producer_for_impl(prod_opdef, prefix_consumer_opname);
+        return hnnx::producer_for_impl(prod_opdef, opname);
     }
     expr(OPEX const &prod_opexpr, char const *consumer_opname)
         : m_consumer_opname(consumer_opname), m_prod_opexpr(prod_opexpr)
@@ -953,9 +954,9 @@ template <typename OPEX> struct expr<Variant::eq_opstr, OPEX> : private opdef_ac
     {
         // TODO -- can this be moved to the constructor?
         std::string prefix_opname;
-        hnnx::get_opname_with_pkg_prefix(prefix_opname, m_opname.c_str());
+        const char *opname = hnnx::get_opname_with_pkg_prefix(prefix_opname, m_opname.c_str());
         OpDef const &opdef = get_opdef_oexpr<OPEX>(e, m_opexpr);
-        return opdef.opstr == prefix_opname;
+        return opdef.opstr == opname;
     }
     expr(OPEX const &op_opexpr, char const *opname) : m_opname(opname), m_opexpr(op_opexpr) {}
 };
@@ -1033,4 +1034,5 @@ template <typename OPER> inline auto ITER_INPUT_OF(OPER &&oper, hnnx::split_cont
 
 POP_VISIBILITY()
 
+#endif /* !PREPARE_DISABLED */
 #endif /* OEXPR_POST_H_ */

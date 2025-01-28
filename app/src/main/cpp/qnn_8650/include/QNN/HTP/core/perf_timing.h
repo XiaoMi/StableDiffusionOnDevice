@@ -19,9 +19,9 @@ class PcyclePoint {
   public:
     API_EXPORT PcyclePoint(bool enable);
     API_EXPORT void stop();
-    uint64_t get_total() const { return end > start ? (end - start) : 0; }
-    uint64_t get_start() const { return start; }
-    uint64_t get_end() const { return end; }
+    API_EXPORT uint64_t get_total() const { return end > start ? (end - start) : 0; }
+    API_EXPORT uint64_t get_start() const { return start; }
+    API_EXPORT uint64_t get_end() const { return end; }
     //private:
     uint64_t start;
     uint64_t end;

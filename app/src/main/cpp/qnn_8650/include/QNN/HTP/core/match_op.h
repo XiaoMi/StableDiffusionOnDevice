@@ -14,6 +14,8 @@
 #include "op_package_name.h"
 #include "macros_attribute.h"
 #include "weak_linkage.h"
+
+#ifndef PREPARE_DISABLED
 //
 //
 // Classes to make a 'MatchOp'
@@ -101,7 +103,7 @@ class MatchAstNode {
     API_EXPORT int enumerate_ops(std::map<operand_tag_t, int> &op_tag_to_idx_map, int opcount);
 
     // if WITH_OPT_DEBUG is not defined, this returns an empty pointer.
-    std::unique_ptr<char[]> make_debug_desc(std::map<operand_tag_t, int> const &opertag_to_idx_map) const;
+    API_EXPORT std::unique_ptr<char[]> make_debug_desc(std::map<operand_tag_t, int> const &opertag_to_idx_map) const;
 
   public:
     API_EXPORT MatchAstNode(char const *, char const *, node_variant, int n_subnodes, MatchAstSubnode *subnodes);
@@ -132,8 +134,8 @@ class MatchBuilder {
 
     // just convert each 'input' to a MatchAstSubnode, and build a MatchAstNode from that.
     template <typename... Ts>
-    static typename std::enable_if<have_matchast_uptr<Ts...>::value, hnnx::MatchAst_uptr>::type Op(char const *opname,
-                                                                                                   Ts &&...ts)
+    API_EXPORT static typename std::enable_if<have_matchast_uptr<Ts...>::value, hnnx::MatchAst_uptr>::type
+    Op(char const *opname, Ts &&...ts)
     {
         std::array<hnnx::MatchAstSubnode, sizeof...(Ts)> subnodes = {std::move(std::forward<Ts>(ts))...};
         return std::make_unique<hnnx::MatchAstNode>(opname, pkg_flag.c_str(), hnnx::MatchAstNode::is_Op, sizeof...(Ts),
@@ -141,8 +143,8 @@ class MatchBuilder {
     }
 
     template <typename... Ts>
-    static typename std::enable_if<are_strings<Ts...>::value, hnnx::MatchAst_uptr>::type Op(char const *opname,
-                                                                                            Ts... ts)
+    API_EXPORT static typename std::enable_if<are_strings<Ts...>::value, hnnx::MatchAst_uptr>::type
+    Op(char const *opname, Ts... ts)
     {
         std::array<hnnx::MatchAstSubnode, sizeof...(Ts)> subnodes = {(ts)...};
         return std::make_unique<hnnx::MatchAstNode>(opname, pkg_flag.c_str(), hnnx::MatchAstNode::is_Op, sizeof...(Ts),
@@ -150,7 +152,7 @@ class MatchBuilder {
     }
 
     template <typename... Ts>
-    static typename std::enable_if<are_strings<Ts...>::value, hnnx::MatchAst_uptr>::type
+    API_EXPORT static typename std::enable_if<are_strings<Ts...>::value, hnnx::MatchAst_uptr>::type
     Op(char const *opname, hnnx::MatchAst_uptr &&t1, Ts... ts)
     {
         hnnx::MatchAstSubnode subnodes[sizeof...(Ts) + 1] = {std::move(t1), (ts)...};
@@ -164,7 +166,7 @@ class MatchBuilder {
     /// The number of inputs may be zero: OpVarIn("opname") matches any op "opname".
     ///
     template <typename... Ts>
-    static typename std::enable_if<have_matchast_uptr<Ts...>::value, hnnx::MatchAst_uptr>::type
+    API_EXPORT static typename std::enable_if<have_matchast_uptr<Ts...>::value, hnnx::MatchAst_uptr>::type
     OpVarIn(char const *opname, Ts &&...ts)
     {
         std::array<hnnx::MatchAstSubnode, sizeof...(Ts)> subnodes = {std::move(std::forward<Ts>(ts))...};
@@ -173,8 +175,8 @@ class MatchBuilder {
     }
 
     template <typename... Ts>
-    static typename std::enable_if<are_strings<Ts...>::value, hnnx::MatchAst_uptr>::type OpVarIn(char const *opname,
-                                                                                                 Ts... ts)
+    API_EXPORT static typename std::enable_if<are_strings<Ts...>::value, hnnx::MatchAst_uptr>::type
+    OpVarIn(char const *opname, Ts... ts)
     {
         std::array<hnnx::MatchAstSubnode, sizeof...(Ts)> subnodes = {(ts)...};
         return std::make_unique<hnnx::MatchAstNode>(opname, pkg_flag.c_str(), hnnx::MatchAstNode::is_OpVarIn,
@@ -185,7 +187,7 @@ class MatchBuilder {
     /// Second parameter must be Op or OpVarIn, and must not contain the same tag.
     /// The same tag can be used elsewhere in the pattern, but only in one LET.
     ///
-    static hnnx::MatchAst_uptr LET(hnnx::operand_tag_parm_t optag, hnnx::MatchAst_uptr &&subnode)
+    API_EXPORT static hnnx::MatchAst_uptr LET(hnnx::operand_tag_parm_t optag, hnnx::MatchAst_uptr &&subnode)
     {
         implement_LET(optag, subnode);
         return std::move(subnode);
@@ -194,14 +196,15 @@ class MatchBuilder {
     /// just adds 'optag' to the node, and complains if it already has a tag.
     /// Maybe it also checks that the name doesn't appear inside.
     //
-    static void implement_LET(hnnx::operand_tag_parm_t optag, hnnx::MatchAst_uptr &subnode);
+    API_EXPORT static void implement_LET(hnnx::operand_tag_parm_t optag, hnnx::MatchAst_uptr &subnode);
 
   public:
-    template <typename T> static hnnx::MatchAst_uptr matcher();
-    static hnnx::MatchOp_uptr build_matcher(hnnx::MatchAst_uptr &matchast);
-    static std::string pkg_flag;
+    template <typename T> API_EXPORT static hnnx::MatchAst_uptr matcher();
+    API_EXPORT static hnnx::MatchOp_uptr build_matcher(hnnx::MatchAst_uptr &matchast);
+    API_EXPORT_IMPORT static std::string pkg_flag;
 };
 
 POP_VISIBILITY()
 
+#endif //* !PREPARE_DISABLED */
 #endif /* MATCH_OP_H_ */

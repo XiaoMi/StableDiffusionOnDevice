@@ -112,6 +112,7 @@ class string_tag_t {
     API_EXPORT static string_key map_str(char const *s);
 
   public:
+    ~string_tag_t() = default;
     // same as string_tag_t(string_view), but if the name is not already in the registry,
     // it will return string_tag for "" (can check with result.empty())
     API_EXPORT static string_tag_t map_str_checked(std::string_view);
@@ -157,14 +158,14 @@ class string_tag_t {
     // string_tat_g::nullobj() returns a 'null' object which is mostly unusable; it can
     // be copied; also == and != will work. null object are equal to each other and
     // different from other string_tag_t.
-    static inline string_tag_t nullobj() { return string_tag_t((string_key) nullptr); }
+    API_EXPORT static inline string_tag_t nullobj() { return string_tag_t((string_key) nullptr); }
 
   protected:
     explicit string_tag_t(string_key k) : skey(k) {}
     friend struct std::hash<string_tag_t>;
     friend unsigned find_opname_hash(string_tag_t const &nm);
     // this  meets the requirements for std::hash: mapping may change from run to run.
-    size_t std_hash_val() const noexcept { return size_t(skey); }
+    API_EXPORT size_t std_hash_val() const noexcept { return size_t(skey); }
 };
 POP_VISIBILITY()
 
@@ -210,10 +211,12 @@ typedef string_tag_t split_context_tag_t;
 typedef string_tag_t split_context_parm_t;
 #endif
 
+PUSH_VISIBILITY(default)
 // this is for use in code where we need to transform a literal name to opstr,
 // e.g. opname_tag_t opname_Concat = make_opname( "Concat");
 //
 API_EXPORT opname_tag_t make_opname(char const *opname, char const *prefix = THIS_PKG_NAME_STR);
+POP_VISIBILITY()
 
 // For retrieving an option value from within DEF_OPT rules, converted to T.
 // Returns true if the option exists and can convert to T;

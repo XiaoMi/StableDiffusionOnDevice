@@ -26,6 +26,17 @@
 #define API_FUNC_EXPORT __attribute__((visibility("default")))
 #endif // _MSC_VER
 
+// Macro API_EXPORT_IMPORT to export class static variables
+#if defined(_MSC_VER)
+#if defined(BUILD_OP_PACKAGE)
+#define API_EXPORT_IMPORT __declspec(dllimport)
+#else // not BUILD_OP_PACKAGE, export symbols for building library
+#define API_EXPORT_IMPORT __declspec(dllexport)
+#endif
+#else // not define _MSC_VER
+#define API_EXPORT_IMPORT __attribute__((visibility("default")))
+#endif // _MSC_VER
+
 // Macro API_FUNC_HIDDEN to hide symbols
 #if defined(_MSC_VER)
 #define API_FUNC_HIDDEN

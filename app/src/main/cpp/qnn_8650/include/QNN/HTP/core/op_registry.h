@@ -62,28 +62,32 @@ PUSH_VISIBILITY(default)
 	 * Returns a reference to the op once emplaced.
 	 * Why? Because that allows us to create static variables with the results, causing the functions to be loaded automatically...
 	 */
-extern OpFactory register_op(opname_tag_t name, OpFactory newop, SimpleOpFactory simop, bool is_external);
+extern API_FUNC_EXPORT OpFactory register_op(opname_tag_t name, OpFactory newop, SimpleOpFactory simop,
+                                             bool is_external);
 
 /*
 	 * Generate an op
 	 */
-uptr_Op op_factory_generate(OpIoPtrs const &op_io_ptrs, OpId id_in);
+API_FUNC_EXPORT uptr_Op op_factory_generate(OpIoPtrs const &op_io_ptrs, OpId id_in);
 
 /**Function returns a reference for the registered ops structure
 	 * This function currently enables unit tests on the op registry
 	 *
 	 */
-extern const OpRegistry_map_t &get_registered_ops();
+extern API_FUNC_EXPORT const OpRegistry_map_t &get_registered_ops();
+
+// Function clean up all package(external) ops from op maps
+extern API_FUNC_EXPORT void clear_pkg_ops_in_op_maps();
 
 // for 'introspect', we want a mapping from each registered OpFactory (a function pointer)
 // to the corresponding typeid ptr. This map is built via calls to
 // register_optype_by_factory; this function is normally a weak def which does nothing,
 // but introspect.cc redefines it.
 //
-void register_optype_by_factory(OpFactory fp, hnnx::opname_tag_t opname_tag, std::type_info const &typ,
-                                const std::string_view type_tag);
-void register_optype_by_factory(SimpleOpFactory fp, hnnx::opname_tag_t opname_tag, std::type_info const &typ,
-                                const std::string_view type_tag);
+API_FUNC_EXPORT void register_optype_by_factory(OpFactory fp, hnnx::opname_tag_t opname_tag, std::type_info const &typ,
+                                                const std::string_view type_tag);
+API_FUNC_EXPORT void register_optype_by_factory(SimpleOpFactory fp, hnnx::opname_tag_t opname_tag,
+                                                std::type_info const &typ, const std::string_view type_tag);
 
 POP_VISIBILITY()
 

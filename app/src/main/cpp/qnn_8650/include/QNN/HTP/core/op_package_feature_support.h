@@ -32,6 +32,8 @@
 #include "weak_linkage.h"
 #include "macros_attribute.h"
 
+PUSH_VISIBILITY(default)
+
 namespace hnnx {
 
 // configuration of each op package op parameter
@@ -128,7 +130,15 @@ API_EXPORT void add_package_per_channel_ops(std::set<std::string> &oset, const c
     }                                                                                                                  \
     std::unordered_map<std::string, hnnx::ParamMap_t *> &getPkgParamTmpMap();                                          \
     std::unordered_map<std::string, std::set<std::string> *> &getPkgParamAxesTmpMap();                                 \
-    std::unordered_map<std::string, std::set<std::string> *> &getPkgPerChannelOpsTmpMap();
+    std::unordered_map<std::string, std::set<std::string> *> &getPkgPerChannelOpsTmpMap();                             \
+    void clearPkgStorage()                                                                                             \
+    {                                                                                                                  \
+        clearPackageOpsStorageVecFunc();                                                                               \
+        clearPackageOptStorageVecFunc();                                                                               \
+        clearPackageParamOrderStorageMapFunc();                                                                        \
+        clearPackageParamAxesSetFunc();                                                                                \
+        clearPackagePerChannelQuantizedOpsSetFunc();                                                                   \
+    }
 
 #define DECLARE_PACKAGE_PARAM_ORDER_DEF() API_HIDDEN hnnx::ParamMap_t &current_package_param_order_storage_map_func();
 
@@ -139,9 +149,11 @@ API_EXPORT void add_package_per_channel_ops(std::set<std::string> &oset, const c
                                              DEFAULT1, ##__VA_ARGS__),                                                 \
              true);
 
+// clean all op_pkg storage during process exit
 #define REGISTER_PACKAGE_PARAM_ORDERS()                                                                                \
     if (getPkgParamTmpMap().find(std::string(THIS_PKG_NAME_STR)) == getPkgParamTmpMap().end())                         \
-        getPkgParamTmpMap()[std::string(THIS_PKG_NAME_STR)] = &current_package_param_order_storage_map_func();
+        getPkgParamTmpMap()[std::string(THIS_PKG_NAME_STR)] = &current_package_param_order_storage_map_func();         \
+    [[maybe_unused]] bool CTRICKS_PASTER(_CLEAN_PKG_PARAMS_, __LINE__) = (std::atexit(clearPkgStorage), true);
 
 #define LIST_PACKAGE_AXIS_PARAMS(...)                                                                                  \
     [[maybe_unused]] static bool CTRICKS_PASTER(_PKG_AXIS_PARAMS_, __LINE__) =                                         \
@@ -160,5 +172,7 @@ API_EXPORT void add_package_per_channel_ops(std::set<std::string> &oset, const c
         getPkgPerChannelOpsTmpMap()[std::string(THIS_PKG_NAME_STR)] = &currentPackagePerChannelQuantizedOpsSetFunc();
 
 DECLARE_PACKAGE_PARAM_ORDER_DEF()
+
+POP_VISIBILITY()
 
 #endif // OP_PACKAGE_FEATURE_SUPPORT_H

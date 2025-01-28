@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// Copyright (c) 2020 Qualcomm Technologies, Inc.
+// Copyright (c) 2020, 2023 Qualcomm Technologies, Inc.
 // All Rights Reserved.
 // Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -21,7 +21,7 @@
 #include <list>
 #include <memory>
 #include <vector>
-#include <string.h>
+#include <cstring>
 #include <stdexcept>
 
 #include "is_detected.h"
@@ -113,11 +113,11 @@ template <typename T> constexpr bool has_clear = is_detected_v<clear_t, T>;
 class Deserializer;
 
 class Crate {
-    static constexpr size_t CHUNKBYTES = (1 << 16);
+    API_EXPORT static constexpr size_t CHUNKBYTES = (1 << 16);
     static_assert(CHUNKBYTES % 8 == 0 && CHUNKBYTES >= 128);
     typedef void (*dtor_funcp)(Graph *graph_in, void *);
-    static dtor_funcp DTOR_TRIVIAL() { return (dtor_funcp)1; }
-    static dtor_funcp DTOR_IN_PROCESS() { return (dtor_funcp)2; }
+    API_EXPORT static dtor_funcp DTOR_TRIVIAL() { return (dtor_funcp)1; }
+    API_EXPORT static dtor_funcp DTOR_IN_PROCESS() { return (dtor_funcp)2; }
 
     //! A record in the index of a chunk
     struct index_rec {
@@ -138,11 +138,14 @@ class Crate {
     ///
     typedef std::unique_ptr<uint64_t[]> uptr_chunk_t;
     struct chunkhdr;
-    static chunkhdr *hdr_of(uptr_chunk_t &p) { return reinterpret_cast<chunkhdr *>(p.get()); }
-    static chunkhdr const *hdr_of(uptr_chunk_t const &p) { return reinterpret_cast<chunkhdr const *>(p.get()); }
+    API_EXPORT static chunkhdr *hdr_of(uptr_chunk_t &p) { return reinterpret_cast<chunkhdr *>(p.get()); }
+    API_EXPORT static chunkhdr const *hdr_of(uptr_chunk_t const &p)
+    {
+        return reinterpret_cast<chunkhdr const *>(p.get());
+    }
     /// The chunkhdr is the first portion of the chunk, and is immediately followed
     /// by data_len bytes, which is a multiple of 8.
-    struct alignas(8) chunkhdr {
+    struct API_EXPORT alignas(8) chunkhdr {
         unsigned data_len; ///< length of the data area following header, bytes (>=CHUNKBYTES).
         unsigned nrec; ///< records in use (including deleted ones)
         unsigned alloc_count; ///< offset of first byte in 'free space'
@@ -175,7 +178,7 @@ class Crate {
             uint8_t const *const px = (uint8_t const *)p;
             return px >= get_ptr(0) && px < get_end_ptr();
         }
-        API_EXPORT static uptr_chunk_t allocate(unsigned len);
+        static uptr_chunk_t allocate(unsigned len);
     };
     std::vector<uptr_chunk_t> m_chunks; /// < chunks with data
     std::vector<uptr_chunk_t> m_free; /// < chunks without
@@ -239,7 +242,7 @@ class Crate {
         return ChunkHandle(m_chunks.empty() ? nullptr : hdr_of(const_cast<Crate &>(*this).m_chunks.back()));
     }
     // 'raw mode'
-    API_EXPORT ChunkHandle enable_raw_mode(unsigned bytes_needed);
+    ChunkHandle enable_raw_mode(unsigned bytes_needed);
     API_EXPORT void enable_raw_mode();
     void disable_raw_mode() { m_rawmode = false; }
     bool raw_mode() const { return m_rawmode; }
@@ -348,7 +351,7 @@ class Crate {
  * EJP: This seems silly, but I don't know how to get visibility into Graph into a templated Tensor because of include hell.
  */
 
-Crate *graph_crate(Graph &graph_in);
+API_EXPORT Crate *graph_crate(Graph &graph_in);
 
 //
 // replacement for vector, for use in ops;

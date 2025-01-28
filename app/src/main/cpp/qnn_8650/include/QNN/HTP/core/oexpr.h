@@ -17,6 +17,8 @@
 #include "macros_attribute.h"
 #include "opname_tag.h"
 #include "weak_linkage.h"
+
+#ifndef PREPARE_DISABLED
 // This file is expected to be #included at top of optimize.h,
 // with oexp_post.h included farther down.
 // #include "optimize.h"
@@ -99,6 +101,8 @@ namespace hnnx {
 template <typename T> class optim_configvar;
 }
 
+PUSH_VISIBILITY(default)
+
 API_EXPORT hnnx::Crate *get_lambda_crate();
 template <typename R> class OptFunction;
 
@@ -108,18 +112,18 @@ template <typename R, typename... Args> class OptFunction<R(Args...)> {
     using OptFunctionTType = R (*)(void *, Args...);
     using OptFunctionType = R (*)(Args...);
 
-    template <typename L> static R LambdaWrapper(void *t, Args... args)
+    template <typename L> API_EXPORT static R LambdaWrapper(void *t, Args... args)
     {
         L *const obj = (L *)t;
         return obj->operator()(args...);
     }
-    static R FunctionWrapper(void *t, Args... args)
+    API_EXPORT static R FunctionWrapper(void *t, Args... args)
     {
         OptFunctionType const obj = (OptFunctionType)t;
         return obj(args...);
     }
     template <typename L>
-    static typename std::enable_if<!std::is_lvalue_reference_v<L>, thisType>::type create(L &&lambda)
+    API_EXPORT static typename std::enable_if<!std::is_lvalue_reference_v<L>, thisType>::type create(L &&lambda)
     {
         L *const l = get_lambda_crate()->emplace<L>(std::forward<L>(lambda));
         return thisType(LambdaWrapper<L>, l);
@@ -127,12 +131,14 @@ template <typename R, typename... Args> class OptFunction<R(Args...)> {
 
     OptFunctionTType mFunc;
     void *mObj;
-    OptFunction() : mFunc(nullptr), mObj(nullptr){};
-    OptFunction(OptFunctionTType f, void *o) : mFunc(f), mObj(o){};
+    API_EXPORT OptFunction() : mFunc(nullptr), mObj(nullptr){};
+    API_EXPORT OptFunction(OptFunctionTType f, void *o) : mFunc(f), mObj(o){};
 
-    R operator()(Args... args) const { return mFunc(mObj, args...); }
-    operator bool() const { return (mFunc != nullptr); }
+    API_EXPORT R operator()(Args... args) const { return mFunc(mObj, args...); }
+    API_EXPORT operator bool() const { return (mFunc != nullptr); }
 };
+
+POP_VISIBILITY()
 
 namespace oExp {
 
@@ -762,6 +768,12 @@ template <typename TA, typename TB, typename... Ts> inline constexpr auto AND(TA
     return make_logop<Variant::lg_and>(parms);
 }
 
+//! AND(a,b, ...) - logical AND; evaluation stops after first 'false' operand
+template <typename TA> inline constexpr auto AND(TA &&a)
+{
+    return AND(std::forward<TA>(a), true);
+}
+
 //! XOR(a,b, ...) - logical XOR
 template <typename TA, typename TB, typename... Ts> inline constexpr auto XOR(TA &&a, TB &&b, Ts &&...ts)
 {
@@ -909,4 +921,5 @@ template <OpVnt V, typename ARG> class opexpr {
 // The definitions in oExp namespace which depend on types
 // defined in optimize.h are in the header 'oexpr_post.h'
 
+#endif /* !PREPARE_DISABLED */
 #endif /* OEXPR_H_ */

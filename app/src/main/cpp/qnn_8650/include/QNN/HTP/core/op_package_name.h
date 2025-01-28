@@ -18,7 +18,7 @@
 #define THIS_PKG_NAME_STR TO_STR2(THIS_PKG_NAME)
 #endif
 
-#include <string.h>
+#include <cstring>
 #include "weak_linkage.h"
 
 namespace hnnx {

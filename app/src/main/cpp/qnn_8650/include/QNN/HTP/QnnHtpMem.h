@@ -32,6 +32,21 @@ extern "C" {
  */
 typedef uint32_t QnnHtpMem_QurtAddress_t;
 
+/**
+ * @brief Configuration for custom shared buffer memory type
+ * This shared buffer is a contiguous chunk of memory identified
+ * by a single file descriptor which will be used by multiple tensors
+ * based on the offset provided
+ * Each QnnMem_register call with different offset will return a
+ * unique memory handle
+ */
+typedef struct {
+  // File descriptor for memory, must be set to QNN_MEM_INVALID_FD if not applicable
+  int32_t fd;
+  // Offset to be used in contiguous shared buffer
+  uint64_t offset;
+} QnnHtpMem_SharedBufferConfig_t;
+
 // clang-format off
 
 /**
@@ -39,6 +54,7 @@ typedef uint32_t QnnHtpMem_QurtAddress_t;
  */
 typedef enum {
   QNN_HTP_MEM_QURT = 0,
+  QNN_HTP_MEM_SHARED_BUFFER = 1,
   QNN_HTP_MEM_UNDEFINED = 0x7FFFFFFF
 } QnnHtpMem_Type_t;
 
@@ -48,11 +64,16 @@ typedef enum {
  * @brief descriptor used for the QNN API
  */
 typedef struct {
+  // Memory type identified by QnnHtpMem_Type_t
   QnnHtpMem_Type_t type;
+  // Total size of the buffer
+  // For memory type QURT, it would be size of a tensor
+  // For memory type SHARED BUFFER, it would be the total size of the buffer
   uint64_t size;
 
   union {
     QnnHtpMem_QurtAddress_t qurtAddress;
+    QnnHtpMem_SharedBufferConfig_t sharedBufferConfig;
   };
 } QnnMemHtp_Descriptor_t;
 

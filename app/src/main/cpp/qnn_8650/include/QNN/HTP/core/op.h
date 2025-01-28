@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// Copyright (c) 2018-2022 Qualcomm Technologies, Inc.
+// Copyright (c) 2018-2023 Qualcomm Technologies, Inc.
 // All Rights Reserved.
 // Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -86,7 +86,6 @@ class Op : public hnnx::Executable {
     //! Half of them can be the external OpID, and we can use a counter or something to uniquify in the other bits.
     //! We can accumulate performance information and such to still represent OpIDs on the interface.
   public:
-    //const unsigned long long int nope_my_id; // move this here so alignment doesn't waste 4 bytes
     Op(){};
     API_EXPORT Op(Graph &graph_in, unsigned long long int my_id_in);
     API_EXPORT Op(hnnx::Deserializer &);
@@ -95,69 +94,89 @@ class Op : public hnnx::Executable {
     // virtual destructor
     virtual ~Op() = default;
     // Use this if you need a destructor which has access to a Graph object.
-    virtual void clear(Graph *graph_in) {}
-    virtual GraphStatus prepare(hnnx::OpIoPtrs const &, bool tcm_available) = 0;
-    virtual GraphStatus allocate(Graph &graph_in) = 0;
+    API_EXPORT virtual void clear(Graph *graph_in) {}
+    API_EXPORT virtual GraphStatus prepare(hnnx::OpIoPtrs const &, bool tcm_available) = 0;
+    API_EXPORT virtual GraphStatus allocate(Graph &graph_in) = 0;
     API_EXPORT OpId id(const Graph &graph_in) const noexcept;
 
     API_EXPORT ChkptStoreType get_chkpt_store_type(const Graph &graph_in) const;
     API_EXPORT OpStoreType get_op_store_type(const Graph &gr) const;
-    static OpStoreType get_op_store_type(uint32_t flags) { return OpStoreType((flags >> ChkptFlagShift) & 3); };
+    API_EXPORT static OpStoreType get_op_store_type(uint32_t flags)
+    {
+        return OpStoreType((flags >> ChkptFlagShift) & 3);
+    };
 
     API_EXPORT void set_chkpts(Graph &graph_in, const std::pair<int, int> chkpts);
-    void set_chkpts(Graph &graph_in, int gate, int done) { set_chkpts(graph_in, std::make_pair(gate, done)); }
+    API_EXPORT void set_chkpts(Graph &graph_in, int gate, int done)
+    {
+        set_chkpts(graph_in, std::make_pair(gate, done));
+    }
 
-    const Tensor *get_input(size_t which) const { return get_input_output(which, true); }
-    const Tensor *get_output(size_t which) const { return get_input_output(which, false); }
+    API_EXPORT const Tensor *get_input(size_t which) const { return get_input_output(which, true); }
+    API_EXPORT const Tensor *get_output(size_t which) const { return get_input_output(which, false); }
 
-    virtual bool set_input(size_t which, const Tensor *tensor) { return false; }
+    API_EXPORT virtual bool set_input(size_t which, const Tensor *tensor) { return false; }
 
-    virtual bool is_valid() const noexcept = 0; // Is this op valid in this situation?
-    void dependence_resolved() noexcept;
+    API_EXPORT virtual bool is_valid() const noexcept = 0; // Is this op valid in this situation?
+    API_EXPORT void dependence_resolved() noexcept;
     API_EXPORT bool
     is_const() const noexcept; // Data for this op always available, execution and dependence tracking not needed.
-    virtual std::pair<size_t, size_t> num_inputs_outputs() const = 0;
-    inline size_t num_outputs() const { return num_inputs_outputs().second; }
-    inline size_t num_inputs() const { return num_inputs_outputs().first; }
+    API_EXPORT virtual std::pair<size_t, size_t> num_inputs_outputs() const = 0;
+    API_EXPORT inline size_t num_outputs() const { return num_inputs_outputs().second; }
+    API_EXPORT inline size_t num_inputs() const { return num_inputs_outputs().first; }
     API_EXPORT const char *true_name() const;
-    virtual Flags_word get_flag_word() const { return hnnx::flags_for<Op>(); }
+    API_EXPORT virtual Flags_word get_flag_word() const { return hnnx::flags_for<Op>(); }
     virtual const char *get_docs() const { return hnnx::docs_for<Op>(); }
 
-    /**
-     * @brief Gets the typeid mangled name of the kernel implementing this op.
-     */
-    API_EXPORT const char *get_func_name() const noexcept;
+    /// @brief
+    ///     Gets the typeid mangled name of the kernel implementing this operator
+    API_EXPORT const char *true_func() const noexcept;
 
     // get type, allowing for SimpleOpWrapper to get forwarded type.
     API_EXPORT std::type_info const *get_type_extended() const;
-    bool get_flag(Flags flag) const { return hnnx::test_flag_for(get_flag_word(), flag); }
-    bool get_flag_and(Flags flag0, Flags flag1) const { return hnnx::test_flag_and(get_flag_word(), flag0, flag1); }
-    inline hnnx::blockid_set_t input_blocks(int mc_sel = -1) const { return input_output_blocks(true, mc_sel); }
-    inline hnnx::blockid_set_t input_blocks(MemoryClass mc) const { return input_output_blocks(true, int(mc)); }
-    inline hnnx::blockid_set_t output_blocks(int mc_sel = -1) const { return input_output_blocks(false, mc_sel); }
-    inline hnnx::blockid_set_t output_blocks(MemoryClass mc) const { return input_output_blocks(false, int(mc)); }
+    API_EXPORT bool get_flag(Flags flag) const { return hnnx::test_flag_for(get_flag_word(), flag); }
+    API_EXPORT bool get_flag_and(Flags flag0, Flags flag1) const
+    {
+        return hnnx::test_flag_and(get_flag_word(), flag0, flag1);
+    }
+    API_EXPORT inline hnnx::blockid_set_t input_blocks(int mc_sel = -1) const
+    {
+        return input_output_blocks(true, mc_sel);
+    }
+    API_EXPORT inline hnnx::blockid_set_t input_blocks(MemoryClass mc) const
+    {
+        return input_output_blocks(true, int(mc));
+    }
+    API_EXPORT inline hnnx::blockid_set_t output_blocks(int mc_sel = -1) const
+    {
+        return input_output_blocks(false, mc_sel);
+    }
+    API_EXPORT inline hnnx::blockid_set_t output_blocks(MemoryClass mc) const
+    {
+        return input_output_blocks(false, int(mc));
+    }
 
-    virtual void enumerate_blocks(hnnx::MemBlockEnumerator &en, bool is_input) const {}
-    inline void enumerate_input_blocks(hnnx::MemBlockEnumerator &en) const { enumerate_blocks(en, true); }
-    inline void enumerate_output_blocks(hnnx::MemBlockEnumerator &en) const { enumerate_blocks(en, false); }
+    API_EXPORT virtual void enumerate_blocks(hnnx::MemBlockEnumerator &en, bool is_input) const {}
+    API_EXPORT inline void enumerate_input_blocks(hnnx::MemBlockEnumerator &en) const { enumerate_blocks(en, true); }
+    API_EXPORT inline void enumerate_output_blocks(hnnx::MemBlockEnumerator &en) const { enumerate_blocks(en, false); }
 
     // The 'ef' parameter to these functions is a callable (function, lambda, std::function...)
     // compatible with MemBlockEnumerator::supply_blocks_func
-    template <typename ENFUNC> inline void enumerate_blocks_withfunc(ENFUNC &&ef, bool is_input) const
+    template <typename ENFUNC> API_EXPORT inline void enumerate_blocks_withfunc(ENFUNC &&ef, bool is_input) const
     {
         hnnx::MemBlockEnumWrapper<std::remove_reference_t<ENFUNC>> enumer(std::forward<ENFUNC>(ef));
         this->enumerate_blocks(enumer, is_input);
     }
-    template <typename ENFUNC> inline void enumerate_input_blocks_withfunc(ENFUNC &&ef) const
+    template <typename ENFUNC> API_EXPORT inline void enumerate_input_blocks_withfunc(ENFUNC &&ef) const
     {
         enumerate_blocks_withfunc(std::forward<ENFUNC>(ef), true);
     }
-    template <typename ENFUNC> inline void enumerate_output_blocks_withfunc(ENFUNC &&ef) const
+    template <typename ENFUNC> API_EXPORT inline void enumerate_output_blocks_withfunc(ENFUNC &&ef) const
     {
         enumerate_blocks_withfunc(std::forward<ENFUNC>(ef), false);
     }
 
-    virtual void serialize(hnnx::SerOpsInterface &) const = 0;
+    API_EXPORT virtual void serialize(hnnx::SerOpsInterface &) const = 0;
     using tensor_deserializer_register_func = int (*)();
 
     // there are fewer combinations of true_output_tuple_type than there are
@@ -206,7 +225,7 @@ class Op : public hnnx::Executable {
     API_EXPORT bool install_output(size_t which, hnnx::uptr_Tensor &&val);
 
   protected:
-    virtual Tensor const *get_input_output(size_t which, bool is_input) const = 0;
+    API_EXPORT virtual Tensor const *get_input_output(size_t which, bool is_input) const = 0;
     // swap_output underpins steal_output and install_output:
     // it should:
     //    return false, if these operations are not supported, or if the index is too large;
@@ -330,21 +349,27 @@ class ConstWrapperOp : public Op {
     API_EXPORT ConstWrapperOp(Graph &graph_in, OpId my_id_in, const OutputDef &def, void const *data_in);
 
     API_EXPORT void clear(Graph *graph_in) override;
-    virtual GraphStatus execute(Graph *g) const noexcept override { return GraphStatus::Success; }
-    virtual hnnx::Executable::ItemType compile(Graph &graph_in) const noexcept override
+    API_EXPORT virtual GraphStatus execute(EXECUTE_METHOD_PARMS) const noexcept override
+    {
+        return GraphStatus::Success;
+    }
+    API_EXPORT virtual hnnx::Executable::ItemType compile(Graph &graph_in) const noexcept override
     {
         return hnnx::Executable::null_item();
     }
-    virtual GraphStatus prepare(hnnx::OpIoPtrs const &, bool tcm_available) override { return GraphStatus::Success; }
-    virtual GraphStatus allocate(Graph &graph_in) override { return GraphStatus::Success; }
-    virtual std::pair<size_t, size_t> num_inputs_outputs() const override { return {0, 1}; }
-    virtual bool is_valid() const noexcept override { return true; }
+    API_EXPORT virtual GraphStatus prepare(hnnx::OpIoPtrs const &, bool tcm_available) override
+    {
+        return GraphStatus::Success;
+    }
+    API_EXPORT virtual GraphStatus allocate(Graph &graph_in) override { return GraphStatus::Success; }
+    API_EXPORT virtual std::pair<size_t, size_t> num_inputs_outputs() const override { return {0, 1}; }
+    API_EXPORT virtual bool is_valid() const noexcept override { return true; }
 
-    const Tensor *tensor_p() const { return owned_tensor.get(); }
+    API_EXPORT const Tensor *tensor_p() const { return owned_tensor.get(); }
     API_EXPORT virtual void serialize(hnnx::SerOpsInterface &sctx) const override;
 
   protected:
-    virtual const Tensor *get_input_output(size_t which, bool is_input) const override
+    API_EXPORT virtual const Tensor *get_input_output(size_t which, bool is_input) const override
     {
         return is_input ? nullptr : tensor_p();
     }
@@ -356,20 +381,26 @@ class ShapeWrapperOp : public Op {
     API_EXPORT ShapeWrapperOp(Graph &graph_in, OpId my_id_in, const OpDef *op_def_in);
     API_EXPORT ShapeWrapperOp(Graph &graph_in, OpId my_id_in, uptr_Tensor owned_tensor_in);
     API_EXPORT ShapeWrapperOp(hnnx::Deserializer &);
-    virtual GraphStatus execute(Graph *g) const noexcept override { return GraphStatus::Success; }
-    virtual hnnx::Executable::ItemType compile(Graph &graph_in) const noexcept override
+    API_EXPORT virtual GraphStatus execute(EXECUTE_METHOD_PARMS) const noexcept override
+    {
+        return GraphStatus::Success;
+    }
+    API_EXPORT virtual hnnx::Executable::ItemType compile(Graph &graph_in) const noexcept override
     {
         return hnnx::Executable::null_item();
     }
-    virtual GraphStatus prepare(hnnx::OpIoPtrs const &, bool tcm_available) override { return GraphStatus::Success; }
-    virtual GraphStatus allocate(Graph &graph_in) override { return GraphStatus::Success; }
-    virtual std::pair<size_t, size_t> num_inputs_outputs() const override { return {0, 1}; }
-    virtual bool is_valid() const noexcept override { return true; }
+    API_EXPORT virtual GraphStatus prepare(hnnx::OpIoPtrs const &, bool tcm_available) override
+    {
+        return GraphStatus::Success;
+    }
+    API_EXPORT virtual GraphStatus allocate(Graph &graph_in) override { return GraphStatus::Success; }
+    API_EXPORT virtual std::pair<size_t, size_t> num_inputs_outputs() const override { return {0, 1}; }
+    API_EXPORT virtual bool is_valid() const noexcept override { return true; }
 
     API_EXPORT virtual void serialize(hnnx::SerOpsInterface &sctx) const override;
 
   protected:
-    virtual const Tensor *get_input_output(size_t which, bool is_input) const override
+    API_EXPORT virtual const Tensor *get_input_output(size_t which, bool is_input) const override
     {
         return is_input ? nullptr : shape.get();
     }
@@ -411,13 +442,13 @@ class SpecialPrepOpBase : public MetaOpBase {
     // These return 'true' if the result was changed, and 'false' if unchanged; the caller can set
     // the variable to reasonable default before calling, and then ignore the result.
     API_EXPORT virtual bool get_opdef_name(OpId opid, opname_tag_t &result) const; // {return false} in op.cc
-    virtual bool get_splithist(OpId opid, splithist_t &result) const { return false; }
-    virtual bool get_is_volatile(OpId opid, bool &result) const { return false; }
-    virtual bool get_cost(const Graph &, OpId opid, float &result) const { return false; }
-    virtual bool get_flags_word(OpId opid, Flags_word &result) const { return false; }
+    API_EXPORT virtual bool get_splithist(OpId opid, splithist_t &result) const { return false; }
+    API_EXPORT virtual bool get_is_volatile(OpId opid, bool &result) const { return false; }
+    API_EXPORT virtual bool get_cost(const Graph &, OpId opid, float &result) const { return false; }
+    API_EXPORT virtual bool get_flags_word(OpId opid, Flags_word &result) const { return false; }
 
     // make a CostBasedFeatureDesc. If 'false' is returned, it should be obtained 'in the usual manner'.
-    virtual bool get_costbased_feature(OpId opid, CostBasedFeatureDesc &result) const { return false; }
+    API_EXPORT virtual bool get_costbased_feature(OpId opid, CostBasedFeatureDesc &result) const { return false; }
 };
 
 // this is a base class for adding hooks on construction of Ops.
@@ -435,8 +466,8 @@ class OpHookBase {
 
 // if the indicated Op is a SpawnOp, get its inner op ptr, otherwise null.
 
-extern Op *get_spawn_inner_op(Op *sp_ptr);
-inline Op const *get_spawn_inner_op(Op const *sp_ptr)
+API_EXPORT extern Op *get_spawn_inner_op(Op *sp_ptr);
+API_EXPORT inline Op const *get_spawn_inner_op(Op const *sp_ptr)
 {
     return get_spawn_inner_op(const_cast<Op *>(sp_ptr));
 }

@@ -163,7 +163,7 @@ template <> constexpr DType dtype_of_type<PlainInterface<NN_INT32_T>>()
 extern long long int dma_validate_cycles;
 
 namespace hnnx {
-extern uint64_t checksum_bytes(uint64_t prev, uint8_t const *bytes, unsigned n);
+API_EXPORT extern uint64_t checksum_bytes(uint64_t prev, uint8_t const *bytes, unsigned n);
 
 // this is to solve a circular dependency issue; defined in graph.h
 class DMA_Manager;
@@ -193,14 +193,14 @@ typedef miniset<void *> blockid_set_t;
 //
 class MemBlockEnumerator {
   public:
-    virtual ~MemBlockEnumerator() {}
-    virtual void supply_blocks_func(Tensor const *tensp, int memclass, void *const *ptr, size_t num) = 0;
+    API_EXPORT virtual ~MemBlockEnumerator() {}
+    API_EXPORT virtual void supply_blocks_func(Tensor const *tensp, int memclass, void *const *ptr, size_t num) = 0;
     // Tensors can use these wrappers
-    inline void supply_blocks(Tensor const *tensp, void *const *ptr, size_t num)
+    API_EXPORT inline void supply_blocks(Tensor const *tensp, void *const *ptr, size_t num)
     {
         supply_blocks_func(tensp, -1, ptr, num);
     }
-    inline void supply_blocks(Tensor const *tensp, MemoryClass mc, void *const *ptr, size_t num)
+    API_EXPORT inline void supply_blocks(Tensor const *tensp, MemoryClass mc, void *const *ptr, size_t num)
     {
         supply_blocks_func(tensp, int(mc), ptr, num);
     }
@@ -212,9 +212,11 @@ class MemBlockEnumToSet : public MemBlockEnumerator {
     int m_memclass_sel;
 
   public:
-    explicit MemBlockEnumToSet(blockid_set_t &s, int mclass_sel = -1) : m_set(s), m_memclass_sel(mclass_sel) {}
-    MemBlockEnumToSet(blockid_set_t &s, MemoryClass mc) : m_set(s), m_memclass_sel(int(mc)) {}
-    virtual void supply_blocks_func(Tensor const *, int memclass, void *const *ptr, size_t num) override
+    API_EXPORT explicit MemBlockEnumToSet(blockid_set_t &s, int mclass_sel = -1) : m_set(s), m_memclass_sel(mclass_sel)
+    {
+    }
+    API_EXPORT MemBlockEnumToSet(blockid_set_t &s, MemoryClass mc) : m_set(s), m_memclass_sel(int(mc)) {}
+    API_EXPORT virtual void supply_blocks_func(Tensor const *, int memclass, void *const *ptr, size_t num) override
     {
         if (m_memclass_sel >= 0 && memclass >= 0 && m_memclass_sel != memclass) return;
         for (size_t i = 0; i < num; i++) {
@@ -227,14 +229,14 @@ class MemBlockEnumToSet : public MemBlockEnumerator {
 template <typename ENFUNC> class MemBlockEnumWrapper : public MemBlockEnumerator {
     ENFUNC m_enfunc;
 
-    virtual void supply_blocks_func(Tensor const *tensp, int memclass, void *const *ptr, size_t num) override
+    API_EXPORT virtual void supply_blocks_func(Tensor const *tensp, int memclass, void *const *ptr, size_t num) override
     {
         m_enfunc(tensp, memclass, ptr, num);
     }
 
   public:
-    inline MemBlockEnumWrapper(ENFUNC &&ef) : m_enfunc(std::move(ef)) {}
-    inline MemBlockEnumWrapper(ENFUNC const &ef) : m_enfunc(ef) {}
+    API_EXPORT inline MemBlockEnumWrapper(ENFUNC &&ef) : m_enfunc(std::move(ef)) {}
+    API_EXPORT inline MemBlockEnumWrapper(ENFUNC const &ef) : m_enfunc(ef) {}
 };
 
 // This is to support Tensor::replace_memory_blocks_withfunc( ..callable..)
@@ -244,7 +246,7 @@ template <typename ENFUNC> class MemBlockEnumWrapper : public MemBlockEnumerator
 template <typename REPLFUNC> class MemBlockReplBlockWrapper : public MemBlockEnumerator {
     REPLFUNC m_replfunc;
 
-    virtual void supply_blocks_func(Tensor const *tensp, int memclass, void *const *ptr, size_t num) override
+    API_EXPORT virtual void supply_blocks_func(Tensor const *tensp, int memclass, void *const *ptr, size_t num) override
     {
         for (unsigned i = 0; i < num; i++) {
             void *newblk = m_replfunc(tensp, ptr[i]);
@@ -253,8 +255,8 @@ template <typename REPLFUNC> class MemBlockReplBlockWrapper : public MemBlockEnu
     }
 
   public:
-    inline MemBlockReplBlockWrapper(REPLFUNC &&ef) : m_replfunc(std::move(ef)) {}
-    inline MemBlockReplBlockWrapper(REPLFUNC const &ef) : m_replfunc(ef) {}
+    API_EXPORT inline MemBlockReplBlockWrapper(REPLFUNC &&ef) : m_replfunc(std::move(ef)) {}
+    API_EXPORT inline MemBlockReplBlockWrapper(REPLFUNC const &ef) : m_replfunc(ef) {}
 };
 
 } // namespace hnnx
@@ -296,14 +298,14 @@ class Interface {
     virtual bool is_quantized() const noexcept { return false; }
 
     // these are 'virtual-by-proxy...'
-    inline float get_scale() const noexcept { return get_qparms()->scale; }
-    inline float get_scale_recip() const noexcept { return get_qparms()->scale_recip; }
-    inline int32_t get_offset() const noexcept { return get_qparms()->offset; }
+    API_EXPORT inline float get_scale() const noexcept { return get_qparms()->scale; }
+    API_EXPORT inline float get_scale_recip() const noexcept { return get_qparms()->scale_recip; }
+    API_EXPORT inline int32_t get_offset() const noexcept { return get_qparms()->offset; }
     API_EXPORT bool compare_equal(Interface const &) const noexcept; // implements operator == in general case
 
   protected:
-    virtual qparms const *get_qparms() const noexcept { return &null_parms; }
-    virtual bool compare_eq_same_type(Interface const *rhs) const noexcept = 0;
+    API_EXPORT virtual qparms const *get_qparms() const noexcept { return &null_parms; }
+    API_EXPORT virtual bool compare_eq_same_type(Interface const *rhs) const noexcept = 0;
 };
 
 namespace hnnx {
@@ -314,8 +316,8 @@ namespace hnnx {
 // returns a pointer to an INTFC , deserialized,
 // by finding an existing one which matches, or by adding a new one to the crate.
 template <typename INTFC> struct make_interface {
-    static Interface const *from_odef(Graph &, OutputDef const &odef);
-    static Interface const *from_deser(Deserializer &dctx);
+    API_EXPORT static Interface const *from_odef(Graph &, OutputDef const &odef);
+    API_EXPORT static Interface const *from_deser(Deserializer &dctx);
 };
 } // namespace hnnx
 
@@ -336,34 +338,39 @@ class GenericAccessorRO {
     const Interface &interface;
 
   public:
-    GenericAccessorRO(void const *data_in, const Interface &interface_in)
+    API_EXPORT GenericAccessorRO(void const *data_in, const Interface &interface_in)
         : data(const_cast<void *>(data_in)), interface(interface_in)
     {
     }
-    GenericAccessorRO(GenericAccessorRO const &) = default;
+    API_EXPORT GenericAccessorRO(GenericAccessorRO const &) = default;
     typedef GenericAccessorRO AccessorRO;
-    inline float as_float() const { return interface.read_float(data); }
-    inline operator float() const { return as_float(); }
+    API_EXPORT inline float as_float() const { return interface.read_float(data); }
+    API_EXPORT inline operator float() const { return as_float(); }
 };
 class GenericAccessor : public GenericAccessorRO {
   public:
-    GenericAccessor(void *data_in, const Interface &interface_in) : GenericAccessorRO(data_in, interface_in) {}
-    GenericAccessor(GenericAccessor const &) = default;
-    inline void set_float(float v) { interface.write_float(data, v); }
-    inline float operator=(float v)
+    API_EXPORT GenericAccessor(void *data_in, const Interface &interface_in) : GenericAccessorRO(data_in, interface_in)
+    {
+    }
+    API_EXPORT GenericAccessor(GenericAccessor const &) = default;
+    API_EXPORT inline void set_float(float v) { interface.write_float(data, v); }
+    API_EXPORT inline float operator=(float v)
     {
         set_float(v);
         return v;
     }
-    inline float operator=(GenericAccessorRO const &rhs)
+    API_EXPORT inline float operator=(GenericAccessorRO const &rhs)
     {
         float const v = rhs.as_float();
         set_float(v);
         return v;
     }
-    inline float operator=(GenericAccessor const &rhs)
+    API_EXPORT inline float operator=(GenericAccessor const &rhs)
     {
-        return operator=(static_cast<GenericAccessorRO const &>(rhs));
+        if (this != &rhs) {
+            return operator=(static_cast<GenericAccessorRO const &>(rhs));
+        }
+        return this->as_float();
     }
 };
 /**
@@ -405,22 +412,22 @@ class GenericAccessor : public GenericAccessorRO {
 
 class NullInterface final : public Interface {
   public:
-    inline constexpr NullInterface() {}
-    virtual void write_float(void *ptr, const float in) const noexcept override final {}
-    virtual float read_float(const void *ptr) const noexcept override final { return 0.0f; }
-    virtual size_t element_size() const noexcept override final { return 0; }
-    virtual void write_floats(void *ptr, const float *srcp, size_t n) const noexcept override final {}
+    API_EXPORT inline constexpr NullInterface() {}
+    API_EXPORT virtual void write_float(void *ptr, const float in) const noexcept override final {}
+    API_EXPORT virtual float read_float(const void *ptr) const noexcept override final { return 0.0f; }
+    API_EXPORT virtual size_t element_size() const noexcept override final { return 0; }
+    API_EXPORT virtual void write_floats(void *ptr, const float *srcp, size_t n) const noexcept override final {}
     API_EXPORT virtual void read_floats(float *dstp, const void *ptr, size_t n) const noexcept override final;
-    int compare(const NullInterface &rhs) const { return 0; };
-    uint32_t interface_hash() const noexcept { return 0; }
+    API_EXPORT int compare(const NullInterface &rhs) const { return 0; };
+    API_EXPORT uint32_t interface_hash() const noexcept { return 0; }
 
     // hide the slower implementations in the base class...
-    inline float get_scale() const noexcept { return 1.0f; }
-    inline float get_scale_recip() const noexcept { return 1.0f; }
-    inline int32_t get_offset() const noexcept { return 0; }
+    API_EXPORT inline float get_scale() const noexcept { return 1.0f; }
+    API_EXPORT inline float get_scale_recip() const noexcept { return 1.0f; }
+    API_EXPORT inline int32_t get_offset() const noexcept { return 0; }
 
   private:
-    virtual bool compare_eq_same_type(Interface const *rhs) const noexcept override final { return true; }
+    API_EXPORT virtual bool compare_eq_same_type(Interface const *rhs) const noexcept override final { return true; }
     // Accessor for NullInterface - empty class.
     struct nullval {
         operator float() const { return 0.0f; }
@@ -429,24 +436,24 @@ class NullInterface final : public Interface {
       public:
         using element_type = nullval;
         using AccessorRO = AcsrRO;
-        AcsrRO() {}
-        AcsrRO(void const *, NullInterface const &) {}
-        AcsrRO(AcsrRO const &) = default;
-        inline element_type value() const { return nullval{}; }
-        inline float as_float() const { return 0.0f; }
-        inline operator float() const { return 0.0f; }
+        API_EXPORT AcsrRO() {}
+        API_EXPORT AcsrRO(void const *, NullInterface const &) {}
+        API_EXPORT AcsrRO(AcsrRO const &) = default;
+        API_EXPORT inline element_type value() const { return nullval{}; }
+        API_EXPORT inline float as_float() const { return 0.0f; }
+        API_EXPORT inline operator float() const { return 0.0f; }
     };
     class Acsr : public AcsrRO {
       public:
         using element_type = nullval;
         using AccessorRO = AcsrRO;
-        Acsr(void *, const NullInterface &) {}
-        Acsr(Acsr const &) = default;
-        inline void set_float(float v) {}
-        inline void set_value(element_type v) {}
-        inline float operator=(float v) { return 0.0f; }
-        inline float operator=(AcsrRO const &rhs) { return 0.0f; }
-        inline float operator=(Acsr const &rhs) { return 0.0f; }
+        API_EXPORT Acsr(void *, const NullInterface &) {}
+        API_EXPORT Acsr(Acsr const &) = default;
+        API_EXPORT inline void set_float(float v) {}
+        API_EXPORT inline void set_value(element_type v) {}
+        API_EXPORT inline float operator=(float v) { return 0.0f; }
+        API_EXPORT inline float operator=(AcsrRO const &rhs) { return 0.0f; }
+        API_EXPORT inline float operator=(Acsr const &rhs) { return 0.0f; }
     };
 
   public:
@@ -457,9 +464,9 @@ class NullInterface final : public Interface {
 // make_interface for NullInterface; easy, just have one
 // and return a pointer to it.
 template <> struct hnnx::make_interface<NullInterface> {
-    API_EXPORT static NullInterface null_ifc; // in tensor.cc
-    static Interface const *from_odef(Graph &, OutputDef const &odef) { return &null_ifc; }
-    static Interface const *from_deser(Deserializer &dctx) { return &null_ifc; }
+    API_EXPORT_IMPORT static NullInterface null_ifc; // in tensor.cc
+    API_EXPORT static Interface const *from_odef(Graph &, OutputDef const &odef) { return &null_ifc; }
+    API_EXPORT static Interface const *from_deser(Deserializer &dctx) { return &null_ifc; }
 };
 
 /**
@@ -473,34 +480,34 @@ template <typename T> class PlainInterface final : public Interface {
   public:
     using element_type = T;
     template <typename TX> using interface_other_type = PlainInterface<TX>;
-    explicit constexpr PlainInterface(const OutputDef &def) {}
-    constexpr PlainInterface() {}
-    explicit constexpr PlainInterface(hnnx::Deserializer &) : PlainInterface() {}
-    static inline constexpr T convert_from_float(const float &in)
+    API_EXPORT explicit constexpr PlainInterface(const OutputDef &def) {}
+    API_EXPORT constexpr PlainInterface() {}
+    API_EXPORT explicit constexpr PlainInterface(hnnx::Deserializer &) : PlainInterface() {}
+    API_EXPORT static inline constexpr T convert_from_float(const float &in)
     {
         return saturate_round<T>(in);
     } // except for T=float!
-    static inline constexpr float convert_to_float(const T &in) { return float(in); }
-    virtual void write_float(void *ptr,
-                             const float in) const noexcept override final; // inlined below
-    virtual inline float read_float(const void *ptr) const noexcept override final
+    API_EXPORT static inline constexpr float convert_to_float(const T &in) { return float(in); }
+    API_EXPORT virtual void write_float(void *ptr,
+                                        const float in) const noexcept override final; // inlined below
+    API_EXPORT virtual inline float read_float(const void *ptr) const noexcept override final
     {
         auto p = static_cast<const T *>(ptr);
         return convert_to_float(*p);
     }
-    virtual size_t element_size() const noexcept override final { return sizeof(T); };
-    virtual void write_floats(void *ptr, const float *srcp, size_t n) const noexcept override final;
-    virtual void read_floats(float *dstp, const void *ptr, size_t n) const noexcept override final;
-    int compare(const PlainInterface &rhs) const { return 0; }
-    uint32_t interface_hash() const noexcept { return 1; } // different from NullInterface
+    API_EXPORT virtual size_t element_size() const noexcept override final { return sizeof(T); };
+    API_EXPORT virtual void write_floats(void *ptr, const float *srcp, size_t n) const noexcept override final;
+    API_EXPORT virtual void read_floats(float *dstp, const void *ptr, size_t n) const noexcept override final;
+    API_EXPORT int compare(const PlainInterface &rhs) const { return 0; }
+    API_EXPORT uint32_t interface_hash() const noexcept { return 1; } // different from NullInterface
 
     // hide the slower implementations in the base class...
-    inline float get_scale() const noexcept { return 1.0f; }
-    inline float get_scale_recip() const noexcept { return 1.0f; }
-    inline int32_t get_offset() const noexcept { return 0; }
+    API_EXPORT inline float get_scale() const noexcept { return 1.0f; }
+    API_EXPORT inline float get_scale_recip() const noexcept { return 1.0f; }
+    API_EXPORT inline int32_t get_offset() const noexcept { return 0; }
 
   private:
-    virtual bool compare_eq_same_type(Interface const *rhs) const noexcept override final { return true; }
+    API_EXPORT virtual bool compare_eq_same_type(Interface const *rhs) const noexcept override final { return true; }
     // Accessor for PlainInterface
     // Doesn't need a reference to interface, just a data pointer (or data, for AcsrRO)
     // We can't actually call it AccessorRO since it needs to contain a typedef AccessorRO.
@@ -513,12 +520,13 @@ template <typename T> class PlainInterface final : public Interface {
       public:
         using element_type = T;
         using AccessorRO = AcsrRO;
-        AcsrRO(void const *data_in, PlainInterface const &) : val(*static_cast<T const *>(data_in)) {}
-        AcsrRO(AcsrRO const &) = default;
-        AcsrRO(Acsr const &a) : val(a.value()) {}
-        inline element_type value() const { return val; }
-        inline float as_float() const { return convert_to_float(val); }
-        inline operator float() const { return as_float(); }
+        API_EXPORT AcsrRO(void const *data_in, PlainInterface const &) : val(*static_cast<T const *>(data_in)) {}
+        API_EXPORT AcsrRO(AcsrRO const &) = default;
+        API_EXPORT AcsrRO &operator=(AcsrRO const &) = default;
+        API_EXPORT AcsrRO(Acsr const &a) : val(a.value()) {}
+        API_EXPORT inline element_type value() const { return val; }
+        API_EXPORT inline float as_float() const { return convert_to_float(val); }
+        API_EXPORT inline operator float() const { return as_float(); }
     };
     class Acsr {
       protected:
@@ -527,15 +535,15 @@ template <typename T> class PlainInterface final : public Interface {
       public:
         using element_type = T;
         using AccessorRO = AcsrRO;
-        Acsr(void *data_in, PlainInterface const &) : data(static_cast<T *>(data_in)) {}
-        Acsr(Acsr const &) = default;
-        inline element_type value() const { return *data; }
-        inline float as_float() const { return convert_to_float(*data); }
-        inline operator float() const { return as_float(); }
+        API_EXPORT Acsr(void *data_in, PlainInterface const &) : data(static_cast<T *>(data_in)) {}
+        API_EXPORT Acsr(Acsr const &) = default;
+        API_EXPORT inline element_type value() const { return *data; }
+        API_EXPORT inline float as_float() const { return convert_to_float(*data); }
+        API_EXPORT inline operator float() const { return as_float(); }
 
-        inline void set_float(float v) { *data = convert_from_float(v); }
-        inline void set_value(element_type v) { *data = v; }
-        inline float operator=(float v)
+        API_EXPORT inline void set_float(float v) { *data = convert_from_float(v); }
+        API_EXPORT inline void set_value(element_type v) { *data = v; }
+        API_EXPORT inline float operator=(float v)
         {
             set_float(v);
             return v;
@@ -544,13 +552,15 @@ template <typename T> class PlainInterface final : public Interface {
         // convert to float and back.
         // @@we could also define operator= for other cases, e.g.
         //  int32 from int16, to do the operation without going to float.
-        inline AcsrRO operator=(Acsr const &rhs)
+        API_EXPORT inline AcsrRO operator=(Acsr const &rhs)
         {
-            T v = rhs.value();
-            set_value(v);
+            if (this != &rhs) {
+                T v = rhs.value();
+                set_value(v);
+            }
             return AcsrRO(*this);
         }
-        inline AcsrRO operator=(AcsrRO const &rhs)
+        API_EXPORT inline AcsrRO operator=(AcsrRO const &rhs)
         {
             T v = rhs.value();
             set_value(v);
@@ -563,14 +573,16 @@ template <typename T> class PlainInterface final : public Interface {
     using AccessorRO = AcsrRO;
 };
 
-template <typename T> void PlainInterface<T>::write_floats(void *ptr, const float *srcp, size_t n) const noexcept
+template <typename T>
+API_EXPORT void PlainInterface<T>::write_floats(void *ptr, const float *srcp, size_t n) const noexcept
 {
     T *const dp = static_cast<T *>(ptr);
     for (int i = 0; i < (int)n; i++) {
         dp[i] = convert_from_float(srcp[i]);
     }
 }
-template <typename T> void PlainInterface<T>::read_floats(float *dstp, const void *ptr, size_t n) const noexcept
+template <typename T>
+API_EXPORT void PlainInterface<T>::read_floats(float *dstp, const void *ptr, size_t n) const noexcept
 {
     T const *const sp = static_cast<T const *>(ptr);
     for (int i = 0; i < (int)n; i++) {
@@ -579,13 +591,13 @@ template <typename T> void PlainInterface<T>::read_floats(float *dstp, const voi
 }
 
 //PlainInterface<float>::convert_from_float: no-op
-template <> inline constexpr float PlainInterface<float>::convert_from_float(const float &in)
+template <> API_EXPORT inline constexpr float PlainInterface<float>::convert_from_float(const float &in)
 {
     return in;
 }
 
 //PlainInterface<Float16>::convert_from_float: no-op for values in Float16 range, clamp to max otherwise.
-template <> inline constexpr Float16 PlainInterface<Float16>::convert_from_float(const float &in)
+template <> API_EXPORT inline constexpr Float16 PlainInterface<Float16>::convert_from_float(const float &in)
 {
     Float16 const max_as_fp16 = std::numeric_limits<Float16>::max();
     float const max_as_fp32 = static_cast<float>(max_as_fp16);
@@ -596,7 +608,7 @@ template <> inline constexpr Float16 PlainInterface<Float16>::convert_from_float
 }
 
 // needs to be defined *after* convert_from_float is specialized
-template <typename T> inline void PlainInterface<T>::write_float(void *ptr, const float in) const noexcept
+template <typename T> API_EXPORT inline void PlainInterface<T>::write_float(void *ptr, const float in) const noexcept
 {
     auto p = static_cast<T *>(ptr);
     *p = convert_from_float(in);
@@ -611,8 +623,8 @@ template <> API_EXPORT void PlainInterface<float>::read_floats(float *dstp, cons
 
 template <typename T> struct hnnx::make_interface<PlainInterface<T>> {
     API_EXPORT static PlainInterface<T> const &get_plain_ifc();
-    static Interface const *from_odef(Graph &, OutputDef const &odef) { return &get_plain_ifc(); }
-    static Interface const *from_deser(Deserializer &dctx) { return &get_plain_ifc(); }
+    API_EXPORT static Interface const *from_odef(Graph &, OutputDef const &odef) { return &get_plain_ifc(); }
+    API_EXPORT static Interface const *from_deser(Deserializer &dctx) { return &get_plain_ifc(); }
 };
 
 extern template class PlainInterface<float>; // in tensor.cc
@@ -633,68 +645,71 @@ template <typename T> class ScaleOffsetInterface final : public Interface {
   public:
     using element_type = T;
     template <typename TX> using interface_other_type = ScaleOffsetInterface<TX>;
-    template <typename TX> static inline constexpr T saturate(TX in) { return saturate_cast<T>(in); }
-    inline constexpr T convert_from_float(float in) const { return saturate_round<T>(qp.offset + in * qp.scale_recip); }
-    inline constexpr float convert_to_float(T in) const
+    template <typename TX> API_EXPORT static inline constexpr T saturate(TX in) { return saturate_cast<T>(in); }
+    API_EXPORT inline constexpr T convert_from_float(float in) const
+    {
+        return saturate_round<T>(qp.offset + in * qp.scale_recip);
+    }
+    API_EXPORT inline constexpr float convert_to_float(T in) const
     {
         if constexpr (sizeof(T) <= 2)
             return (float(int(in) - qp.offset)) * qp.scale;
         else
             return (float(in) - qp.offset) * qp.scale;
     }
-    virtual inline void write_float(void *ptr, const float in) const noexcept override final
+    API_EXPORT virtual inline void write_float(void *ptr, const float in) const noexcept override final
     {
         assert(ptr != nullptr);
         auto p = static_cast<T *>(ptr);
         *p = convert_from_float(in);
     }
-    virtual inline float read_float(const void *ptr) const noexcept override final
+    API_EXPORT virtual inline float read_float(const void *ptr) const noexcept override final
     {
         assert(ptr != nullptr);
         auto p = static_cast<const T *>(ptr);
         return convert_to_float(*p);
     }
-    virtual size_t element_size() const noexcept override final { return sizeof(T); };
-    virtual void write_floats(void *ptr, const float *srcp, size_t n) const noexcept override final;
-    virtual void read_floats(float *dstp, const void *ptr, size_t n) const noexcept override final;
+    API_EXPORT virtual size_t element_size() const noexcept override final { return sizeof(T); };
+    API_EXPORT virtual void write_floats(void *ptr, const float *srcp, size_t n) const noexcept override final;
+    API_EXPORT virtual void read_floats(float *dstp, const void *ptr, size_t n) const noexcept override final;
     // hide the slower implementations of these in the base class...
-    inline float get_scale() const noexcept { return qp.scale; }
-    inline float get_scale_recip() const noexcept { return qp.scale_recip; }
-    inline int32_t get_offset() const noexcept { return qp.offset; }
+    API_EXPORT inline float get_scale() const noexcept { return qp.scale; }
+    API_EXPORT inline float get_scale_recip() const noexcept { return qp.scale_recip; }
+    API_EXPORT inline int32_t get_offset() const noexcept { return qp.offset; }
 
-    virtual bool is_quantized() const noexcept override final { return true; }
+    API_EXPORT virtual bool is_quantized() const noexcept override final { return true; }
 
-    ScaleOffsetInterface(const int offset_, const float scale_) : qp({offset_, scale_, 1.0f / scale_}) {}
-    ScaleOffsetInterface(const OutputDef &def) : ScaleOffsetInterface(def.zero_offset, def.stepsize)
+    API_EXPORT ScaleOffsetInterface(const int offset_, const float scale_) : qp({offset_, scale_, 1.0f / scale_}) {}
+    API_EXPORT ScaleOffsetInterface(const OutputDef &def) : ScaleOffsetInterface(def.zero_offset, def.stepsize)
     {
         if (def.stepsize == 0.0f) debuglog("Oops: zero stepsize");
     }
-    ScaleOffsetInterface() : ScaleOffsetInterface(0, 1.0f) {}
-    ScaleOffsetInterface(hnnx::Deserializer &dctx)
+    API_EXPORT ScaleOffsetInterface() : ScaleOffsetInterface(0, 1.0f) {}
+    API_EXPORT ScaleOffsetInterface(hnnx::Deserializer &dctx)
     {
         qp.offset = dctx.deserialize_uint32();
         qp.scale = dctx.deserialize_float();
         qp.scale_recip = 1.0f / qp.scale;
     }
-    int compare(const ScaleOffsetInterface &rhs) const
+    API_EXPORT int compare(const ScaleOffsetInterface &rhs) const
     {
         if (qp.offset != rhs.qp.offset) return (qp.offset - rhs.qp.offset);
         if (qp.scale != rhs.qp.scale) return (qp.scale < rhs.qp.scale) ? -1 : 1;
         return 0;
     }
-    inline int compare_eq(const ScaleOffsetInterface &rhs) const noexcept
+    API_EXPORT inline int compare_eq(const ScaleOffsetInterface &rhs) const noexcept
     {
         return qp.offset == rhs.qp.offset && qp.scale == rhs.qp.scale;
     }
-    uint32_t interface_hash() const noexcept
+    API_EXPORT uint32_t interface_hash() const noexcept
     {
         return unsigned(qp.offset) * 0x10661 ^ (image_convert<unsigned, float>(qp.scale) << 1);
     }
 
   private:
-    virtual Interface::qparms const *get_qparms() const noexcept final { return &qp; }
+    API_EXPORT virtual Interface::qparms const *get_qparms() const noexcept final { return &qp; }
 
-    virtual bool compare_eq_same_type(Interface const *rhs) const noexcept override final
+    API_EXPORT virtual bool compare_eq_same_type(Interface const *rhs) const noexcept override final
     {
         return compare_eq(*static_cast<ScaleOffsetInterface const *>(rhs));
     }
@@ -708,15 +723,17 @@ template <typename T> class ScaleOffsetInterface final : public Interface {
       public:
         using element_type = T;
         using AccessorRO = AcsrRO;
-        AcsrRO(void const *data_in, const ScaleOffsetInterface &interface_in)
+        API_EXPORT AcsrRO(void const *data_in, const ScaleOffsetInterface &interface_in)
             : val(*static_cast<T const *>(data_in)), interface(interface_in)
         {
         }
-        AcsrRO(AcsrRO const &) = default;
-        inline element_type value() const { return val; }
-        inline float as_float() const { return interface.convert_to_float(val); }
-        inline operator float() const { return as_float(); }
-        AcsrRO(Acsr const &a) : val(a.value()), interface(a.interface) {}
+
+        API_EXPORT AcsrRO(AcsrRO const &) = default;
+        AcsrRO &operator=(AcsrRO const &) = default;
+        API_EXPORT inline element_type value() const { return val; }
+        API_EXPORT inline float as_float() const { return interface.convert_to_float(val); }
+        API_EXPORT inline operator float() const { return as_float(); }
+        API_EXPORT AcsrRO(Acsr const &a) : val(a.value()), interface(a.interface) {}
     };
     class Acsr {
         friend class AcsrRO;
@@ -728,28 +745,31 @@ template <typename T> class ScaleOffsetInterface final : public Interface {
       public:
         using element_type = T;
         using AccessorRO = AcsrRO;
-        Acsr(void *data_in, const ScaleOffsetInterface &interface_in)
+        API_EXPORT Acsr(void *data_in, const ScaleOffsetInterface &interface_in)
             : data(static_cast<T *>(data_in)), interface(interface_in)
         {
         }
         Acsr(Acsr const &) = default;
-        inline element_type value() const { return *data; }
-        inline float as_float() const { return interface.convert_to_float(*data); }
-        inline operator float() const { return as_float(); }
-        inline void set_float(float v) { *data = interface.convert_from_float(v); }
-        inline void set_value(element_type v) { *data = v; }
-        inline float operator=(float v)
+        API_EXPORT inline element_type value() const { return *data; }
+        API_EXPORT inline float as_float() const { return interface.convert_to_float(*data); }
+        API_EXPORT inline operator float() const { return as_float(); }
+        API_EXPORT inline void set_float(float v) { *data = interface.convert_from_float(v); }
+        API_EXPORT inline void set_value(element_type v) { *data = v; }
+        API_EXPORT inline float operator=(float v)
         {
             set_float(v);
             return v;
         }
-        inline float operator=(Acsr const &rhs)
+        API_EXPORT inline float operator=(Acsr const &rhs)
         {
-            float const v = rhs.as_float();
-            set_float(v);
-            return v;
+            if (this != &rhs) {
+                float const v = rhs.as_float();
+                set_float(v);
+                return v;
+            }
+            return this->as_float();
         }
-        inline float operator=(AcsrRO const &rhs)
+        API_EXPORT inline float operator=(AcsrRO const &rhs)
         {
             float const v = rhs.as_float();
             set_float(v);
@@ -761,7 +781,8 @@ template <typename T> class ScaleOffsetInterface final : public Interface {
     using Accessor = Acsr;
     using AccessorRO = AcsrRO;
 };
-template <typename T> void ScaleOffsetInterface<T>::write_floats(void *ptr, const float *srcp, size_t n) const noexcept
+template <typename T>
+API_EXPORT void ScaleOffsetInterface<T>::write_floats(void *ptr, const float *srcp, size_t n) const noexcept
 {
     ScaleOffsetInterface<T> const intfc = *this;
     T *const dp = static_cast<T *>(ptr);
@@ -769,7 +790,8 @@ template <typename T> void ScaleOffsetInterface<T>::write_floats(void *ptr, cons
         dp[i] = intfc.convert_from_float(srcp[i]);
     }
 }
-template <typename T> void ScaleOffsetInterface<T>::read_floats(float *dstp, const void *ptr, size_t n) const noexcept
+template <typename T>
+API_EXPORT void ScaleOffsetInterface<T>::read_floats(float *dstp, const void *ptr, size_t n) const noexcept
 {
     ScaleOffsetInterface<T> const intfc = *this;
     T const *const sp = static_cast<T const *>(ptr);
@@ -783,13 +805,13 @@ template <typename T> struct hnnx::make_interface<ScaleOffsetInterface<T>> {
     // can only declare these here, since we can't see into Graph at this point.
     // Code is in tensor.cc
     API_EXPORT static ScaleOffsetInterface<T> const *from_exemplar(Graph &, ScaleOffsetInterface<T> const &exemplar);
-    static Interface const *from_odef(Graph &g, OutputDef const &odef)
+    API_EXPORT static Interface const *from_odef(Graph &g, OutputDef const &odef)
     {
         // make an exemplar...
         ScaleOffsetInterface<T> const exemplar(odef);
         return from_exemplar(g, exemplar);
     }
-    static Interface const *from_deser(Deserializer &dctx)
+    API_EXPORT static Interface const *from_deser(Deserializer &dctx)
     {
         // deserialize the id; p is a pointer to where it is in index,
         // if that's null, it's a new entry and we need to set it.
@@ -817,7 +839,7 @@ extern template class ScaleOffsetInterface<uint16_t>;
 // Note: there is no operator !=  - if it's added, it has to be added
 // adjacent to all of these or it will be slow. So, just use !(a==b).
 //
-inline bool operator==(Interface const &a, Interface const &b)
+API_EXPORT inline bool operator==(Interface const &a, Interface const &b) noexcept
 {
     // returns true if a,b are different types; otherwise
     // returns a->compare_eq_same_type(&b).
@@ -826,18 +848,19 @@ inline bool operator==(Interface const &a, Interface const &b)
 
 // Specialize for each subclass.
 // All instances of NullInterface are the same.
-inline bool operator==(NullInterface const &, NullInterface const &)
+API_EXPORT inline bool operator==(NullInterface const &, NullInterface const &) noexcept
 {
     return true;
 }
 
 // All instances of PlainInterface<T> are the same
-template <typename T> inline bool operator==(PlainInterface<T> const &, PlainInterface<T> const &)
+template <typename T> API_EXPORT inline bool operator==(PlainInterface<T> const &, PlainInterface<T> const &) noexcept
 {
     return true;
 }
 // we do need to compare ScaleOffsetInterface
-template <typename T> inline bool operator==(ScaleOffsetInterface<T> const &a, ScaleOffsetInterface<T> const b)
+template <typename T>
+API_EXPORT inline bool operator==(ScaleOffsetInterface<T> const &a, ScaleOffsetInterface<T> const &b) noexcept
 {
     if (&a == &b) return true; // same object!
     return a.compare_eq(b);
@@ -932,19 +955,25 @@ class Tensor {
     // These functions are not really part of the interface, but we use them to implement operator()
     // EJP: FIXME: alternative strategies for implementing these, flat index may not make sense
     // for all types of layout.  We could pass rank,coords to generic_accessor
-    virtual Interface const &interface() const noexcept = 0;
-    GenericAccessor generic_accessor(void *p) noexcept { return GenericAccessor(p, interface()); }
-    GenericAccessorRO generic_accessor_ro(void const *p) const noexcept { return GenericAccessorRO(p, interface()); }
+    API_EXPORT virtual Interface const &interface() const noexcept = 0;
+    API_EXPORT GenericAccessor generic_accessor(void *p) noexcept { return GenericAccessor(p, interface()); }
+    API_EXPORT GenericAccessorRO generic_accessor_ro(void const *p) const noexcept
+    {
+        return GenericAccessorRO(p, interface());
+    }
     struct traits { // empty
     };
-    virtual const char *true_name() const { return typeid(*this).name(); }
-    Tensor(const Op *producer_in) {}
-    Tensor(const Op *producer_in, hnnx::Deserializer &) {}
-    Tensor(const Tensor &old, hnnx::Allocator *allocator, clone_mode) {}
-    virtual ~Tensor(){}; // virtual destructor
-    virtual const size_t rank() const noexcept = 0; // What's the rank of this tensor?
-    virtual const size_t dim(size_t index) const noexcept = 0; // What's the length of some dimension?
-    virtual std::pair<size_t const *, size_t> get_dims() const noexcept = 0; // return rank, and address of dims[0..n-1]
+
+    API_EXPORT virtual const char *true_name() const { return typeid(*this).name(); }
+    API_EXPORT Tensor(const Op *producer_in) {}
+    API_EXPORT Tensor(const Op *producer_in, hnnx::Deserializer &) {}
+    API_EXPORT Tensor(const Tensor &old, hnnx::Allocator *allocator, clone_mode) {}
+    API_EXPORT virtual ~Tensor(){}; // virtual destructor
+    API_EXPORT virtual const size_t rank() const noexcept = 0; // What's the rank of this tensor?
+    API_EXPORT virtual const size_t dim(size_t index) const noexcept = 0; // What's the length of some dimension?
+    API_EXPORT virtual std::pair<size_t const *, size_t>
+    get_dims() const noexcept = 0; // return rank, and address of dims[0..n-1]
+
     // this is the first virtual method defined externally.
     API_EXPORT virtual uint32_t find_content_hash() const noexcept; // find 'content hash' of the data.
 
@@ -952,17 +981,20 @@ class Tensor {
     // Note, this is a const method returning a non-const pointer;
     // but we only allow it to publicly return a non-const
     // pointer when used in non-const wrapper methods.
-    virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept = 0;
+    API_EXPORT virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept = 0;
 
   public:
     // element_ptr on insufficiently specialized class gives the result as a void *.
-    inline ALWAYSINLINE void const *element_ptr(size_t rank, const SIdx coords[]) const
+    API_EXPORT inline ALWAYSINLINE void const *element_ptr(size_t rank, const SIdx coords[]) const
     {
         return (void const *)element_addr(rank, coords);
     }
-    inline ALWAYSINLINE void *element_ptr(size_t rank, const SIdx coords[]) { return element_addr(rank, coords); }
+    API_EXPORT inline ALWAYSINLINE void *element_ptr(size_t rank, const SIdx coords[])
+    {
+        return element_addr(rank, coords);
+    }
 
-    std::tuple<size_t, size_t, size_t, size_t> get_dims_4() const
+    API_EXPORT std::tuple<size_t, size_t, size_t, size_t> get_dims_4() const
     {
         size_t const *ptr = nullptr;
         size_t n = 0;
@@ -971,7 +1003,7 @@ class Tensor {
         return std::make_tuple(ptr[0], ptr[1], ptr[2], ptr[3]);
     }
     // this is a common case.
-    std::tuple<size_t, size_t> get_dims_1_2() const
+    API_EXPORT std::tuple<size_t, size_t> get_dims_1_2() const
     {
         size_t const *ptr = nullptr;
         size_t n = 0;
@@ -980,7 +1012,7 @@ class Tensor {
         return std::make_tuple(ptr[1], ptr[2]);
     }
 
-    constexpr std::array<size_t, 4> dims() const
+    API_EXPORT constexpr std::array<size_t, 4> dims() const
     { // make compatible with typical concrete tensor.
         std::array<size_t, 4> ret{0};
         for (int i = 0; i < 4; i++) {
@@ -989,26 +1021,26 @@ class Tensor {
         return ret;
     }
 
-    template <typename... T> const std::array<size_t, sizeof...(T)> dims(T... indices) const
+    template <typename... T> API_EXPORT const std::array<size_t, sizeof...(T)> dims(T... indices) const
     {
         std::array<size_t, sizeof...(indices)> dim_sizes = {dim(indices)...};
         return dim_sizes;
     }
 
-    virtual DTypeScaleOff get_dtype_intfc() const noexcept = 0;
+    API_EXPORT virtual DTypeScaleOff get_dtype_intfc() const noexcept = 0;
     // if you need more than one of these, it is recommended to unpack
     // the result from get_dtype_intfc()
-    DType get_dtype() const { return get_dtype_intfc().dtype; }
-    float get_interface_scale() const { return get_dtype_intfc().scale; }
-    NN_INT32_T get_interface_offset() const { return get_dtype_intfc().offset; }
+    API_EXPORT DType get_dtype() const { return get_dtype_intfc().dtype; }
+    API_EXPORT float get_interface_scale() const { return get_dtype_intfc().scale; }
+    API_EXPORT NN_INT32_T get_interface_offset() const { return get_dtype_intfc().offset; }
     API_EXPORT OutputDef gen_output_def() const;
 
-    template <typename... ind_types> inline GenericAccessorRO operator()(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline GenericAccessorRO operator()(ind_types... inds) const
     {
         const std::array<SIdx, sizeof...(ind_types)> indarr = {static_cast<SIdx>(inds)...};
         return this->generic_accessor_ro(element_addr(sizeof...(ind_types), indarr.data()));
     }
-    template <typename... ind_types> inline GenericAccessor operator()(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline GenericAccessor operator()(ind_types... inds)
     {
         const std::array<SIdx, sizeof...(ind_types)> indarr = {static_cast<SIdx>(inds)...};
         return this->generic_accessor(element_addr(sizeof...(ind_types), indarr.data()));
@@ -1110,59 +1142,65 @@ class Tensor {
     }
 
   public:
+#ifndef PREPARE_DISABLED
+    virtual std::string get_shape_info() const { return {}; }
+#endif
     API_EXPORT virtual uint32_t get_tensor_info() const noexcept; // returns 0;
     API_EXPORT virtual uint32_t get_tensor_format_code() const noexcept; // returns 0;
     // returns false if the dims are the same; true if different, or maybe different.
-    virtual bool set_dims(const size_t dims[]) = 0; // Set the shape of the tensor
-    virtual bool set_dims(const Tensor &prototype) = 0; // Set the shape of the tensor same as another.
+    API_EXPORT virtual bool set_dims(const size_t dims[]) = 0; // Set the shape of the tensor
+    API_EXPORT virtual bool set_dims(const Tensor &prototype) = 0; // Set the shape of the tensor same as another.
 
-    inline void allocate(hnnx::Allocator &allocator, unsigned options = 0) { return allocate_func(allocator, options); }
+    API_EXPORT inline void allocate(hnnx::Allocator &allocator, unsigned options = 0)
+    {
+        return allocate_func(allocator, options);
+    }
 
     /* EJP: FIXME: temporary functions */
     /*
 	 * Some of these functions are convenient for now, but don't necessarily
 	 * need to live for a long time if we find better ways of doing things.
 	 */
-    virtual void *raw_data() noexcept = 0; // Get pointer to raw data
-    void const *raw_data_const() const noexcept { return const_cast<Tensor *>(this)->raw_data(); }
-    virtual void set_raw_data_despite_danger(void *buffer)
+    API_EXPORT virtual void *raw_data() noexcept = 0; // Get pointer to raw data
+    API_EXPORT void const *raw_data_const() const noexcept { return const_cast<Tensor *>(this)->raw_data(); }
+    API_EXPORT virtual void set_raw_data_despite_danger(void *buffer)
     {
         assert(!"Invalid to set raw pointer on this type of tensor");
     }
-    virtual size_t total_storage_elements() const = 0;
-    virtual size_t total_storage_bytes() const = 0;
-    const char *truetype() const noexcept { return typeid(*this).name(); }
+    API_EXPORT virtual size_t total_storage_elements() const = 0;
+    API_EXPORT virtual size_t total_storage_bytes() const = 0;
+    API_EXPORT const char *truetype() const noexcept { return typeid(*this).name(); }
 
     // Append the set of allocated memory blocks to blocklist.
     API_EXPORT void get_memory_blocks(hnnx::blockid_set_t &blocklist, int mc_sel = -1) const;
-    inline void get_memory_blocks(hnnx::blockid_set_t &blocklist, MemoryClass mc) const
+    API_EXPORT inline void get_memory_blocks(hnnx::blockid_set_t &blocklist, MemoryClass mc) const
     {
         get_memory_blocks(blocklist, int(mc));
     }
     // return the set of memory blocks
     API_EXPORT hnnx::blockid_set_t get_memory_blocks(int mc_sel = -1) const;
-    inline hnnx::blockid_set_t get_memory_blocks(MemoryClass mc) const { return get_memory_blocks(int(mc)); }
+    API_EXPORT inline hnnx::blockid_set_t get_memory_blocks(MemoryClass mc) const { return get_memory_blocks(int(mc)); }
 
     // Supply the allocated memory blocks to the enumerator.
-    virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &) const = 0;
+    API_EXPORT virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &) const = 0;
 
     // The 'ef' parameter to these functions is a callable (function, lambda, std::function...)
     // compatible with MemBlockEnumerator::supply_blocks_func
-    template <typename ENFUNC> inline void enum_memory_blocks_withfunc(ENFUNC &&ef) const
+    template <typename ENFUNC> API_EXPORT inline void enum_memory_blocks_withfunc(ENFUNC &&ef) const
     {
         hnnx::MemBlockEnumWrapper<std::remove_reference_t<ENFUNC>> enumer(std::forward<ENFUNC>(ef));
         this->enum_memory_blocks(enumer);
     }
     // The 'rf' parameter to these functions is a callable (function, lambda, std::function...)
     // .. called as ( Tensor const *, void *old_blkid) -> void *new_blkid
-    template <typename REPLFUNC> inline void replace_memory_blocks_withfunc(REPLFUNC &&rf)
+    template <typename REPLFUNC> API_EXPORT inline void replace_memory_blocks_withfunc(REPLFUNC &&rf)
     {
         hnnx::MemBlockReplBlockWrapper<std::remove_reference_t<REPLFUNC>> enumer(std::forward<REPLFUNC>(rf));
         this->enum_memory_blocks(enumer);
     }
     // this is passed a map<void*,void*> or any similar type with find() and end(),
     // and uses it to edit the blocks in the tensor.
-    template <typename MAPTYPE> inline void replace_memory_blocks_withmap(MAPTYPE const &map)
+    template <typename MAPTYPE> API_EXPORT inline void replace_memory_blocks_withmap(MAPTYPE const &map)
     {
         replace_memory_blocks_withfunc([&map](Tensor const *, void *oldid) {
             auto found_at = map.find(oldid);
@@ -1170,12 +1208,12 @@ class Tensor {
         });
     }
 
-    void serialize(hnnx::SerOpsInterface &sctx) const { sctx.tensor_serialize(this); }
+    API_EXPORT void serialize(hnnx::SerOpsInterface &sctx) const { sctx.tensor_serialize(this); }
     // The same tensor in the same layout, but with persistent storage.
 
     API_EXPORT std::unique_ptr<Tensor> persistent_clone(hnnx::Allocator *allocator, bool zoneb = false) const;
     // same thing, but does refcounts in 'zone B'
-    inline std::unique_ptr<Tensor> persistent_clone_Op(hnnx::Allocator *allocator) const
+    API_EXPORT inline std::unique_ptr<Tensor> persistent_clone_Op(hnnx::Allocator *allocator) const
     {
         return persistent_clone(allocator, true);
     }
@@ -1187,11 +1225,14 @@ class Tensor {
     // decref the ref counts of any contained blocks (all must be persistent)
     API_EXPORT void persistent_decref(hnnx::Allocator *allocator, bool zoneb = false) const;
     // same thing, but does refcounts in 'zone B'
-    inline void persistent_decref_Op(hnnx::Allocator *allocator) const { return persistent_decref(allocator, true); }
+    API_EXPORT inline void persistent_decref_Op(hnnx::Allocator *allocator) const
+    {
+        return persistent_decref(allocator, true);
+    }
 
     // a 'duplicate' - same type,layout,dims; references the same
     // memory block(s) (where applicable).
-    std::unique_ptr<Tensor> duplicate_clone(hnnx::Allocator *allocator) const
+    API_EXPORT std::unique_ptr<Tensor> duplicate_clone(hnnx::Allocator *allocator) const
     {
         return reallocate_clone(allocator, true);
     }
@@ -1205,7 +1246,7 @@ class Tensor {
     //   - otherwise call protected virtual compare_sametype(), which can then use static_cast
     //     to downcast (and doesn't need to recurse back to the base).
 
-    int compare(const Tensor *rhs) const
+    API_EXPORT int compare(const Tensor *rhs) const
     {
         Tensor const *const lhs = this;
         std::type_info const &lhs_type = typeid(*lhs);
@@ -1217,7 +1258,7 @@ class Tensor {
         }
     }
 
-    virtual uint64_t get_checksum() const { return 0LL; };
+    API_EXPORT virtual uint64_t get_checksum() const { return 0LL; };
     // these only work on specific types; in others, you inherit the base class implementation
     // which raises a runtime error. You can use tile_support() to find out if support exists
     API_EXPORT virtual void const *read_tile(unsigned flags, void *buffer, size_t b, int h, int w, int d) const;
@@ -1232,13 +1273,13 @@ class Tensor {
     };
 
     API_EXPORT virtual unsigned tile_support_bits() const;
-    inline bool tile_support() const { return (tile_support_bits() & tile_any) != 0; }
-    inline bool tile_support_fast() const { return (tile_support_bits() & tile_fast) != 0; }
-    inline bool tile_support_direct() const { return (tile_support_bits() & tile_direct) != 0; }
+    API_EXPORT inline bool tile_support() const { return (tile_support_bits() & tile_any) != 0; }
+    API_EXPORT inline bool tile_support_fast() const { return (tile_support_bits() & tile_fast) != 0; }
+    API_EXPORT inline bool tile_support_direct() const { return (tile_support_bits() & tile_direct) != 0; }
     // this is currently a wrapper on tile_write, which inserts the 'write_strategy' flag, and suppresses broadcast
     // and copy flags. It may change to a separate virtual func.
     // (this is defined as an inline, in tile_extract.h).
-    void *write_tile_strategy(unsigned flags, void *buffer, size_t b, int h, int w, int d);
+    API_EXPORT void *write_tile_strategy(unsigned flags, void *buffer, size_t b, int h, int w, int d);
 
     API_EXPORT static uint32_t content_hash_data(void const *, size_t nbytes, bool is_float) noexcept;
     API_EXPORT static uint32_t content_hash_data_indirect(uint32_t inhash, void **blocks, unsigned nblocks,
@@ -1246,7 +1287,7 @@ class Tensor {
 
     API_EXPORT static uint32_t build_hash(size_t const *dims, int n, uint32_t previous) noexcept;
 
-    struct tensor_blockinfo {
+    struct API_EXPORT tensor_blockinfo {
         void **blkptrs; // pointer to block table (nullptr if no blocks)
         // shapepp is a pointer to the shape pointer (where applicable; otherwise null). If a clone
         // is done, it points to the field in the cloned tensor.
@@ -1269,16 +1310,16 @@ class Tensor {
             is_chunked = false;
         }
     };
-    inline void get_tensor_blockinfo(tensor_blockinfo *infop) const { clone_util(nullptr, nullptr, infop); }
+    API_EXPORT inline void get_tensor_blockinfo(tensor_blockinfo *infop) const { clone_util(nullptr, nullptr, infop); }
 
     // deserialize a single block pointer for a contiguous tensor.
-    static void *deserialize_block_pointer(hnnx::Deserializer &dctx);
+    API_EXPORT static void *deserialize_block_pointer(hnnx::Deserializer &dctx);
     // deserialize an indirect blocktable, return pointer.
-    static void **deserialize_blocktable(hnnx::Deserializer &dctx, unsigned const nblocks);
+    API_EXPORT static void **deserialize_blocktable(hnnx::Deserializer &dctx, unsigned const nblocks);
 
   protected:
-    virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) = 0;
-    virtual int compare_sametype(const Tensor *rhs) const = 0;
+    API_EXPORT virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) = 0;
+    API_EXPORT virtual int compare_sametype(const Tensor *rhs) const = 0;
 
     // clone_util is an overburdened virtual function, which performs duplicate_clone almost directly,
     // and provides other info by which the other clone methods, and the decref methods,
@@ -1294,8 +1335,8 @@ class Tensor {
     //
     // Note: allocator may be null if tensp is null.
 
-    virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
-                              tensor_blockinfo *infop) const = 0;
+    API_EXPORT virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
+                                         tensor_blockinfo *infop) const = 0;
 };
 
 // A FakeTensor is intended as an intermediate base for special subclasses which
@@ -1354,20 +1395,21 @@ template <unsigned TRank> class RankedTensor : public Tensor {
         static constexpr unsigned Rank = TRank;
     };
 
-    RankedTensor(const Op *producer_in) : Tensor(producer_in) {}
-    RankedTensor(const Op *producer_in, hnnx::Deserializer &dctx) : Tensor(producer_in, dctx) {}
-    RankedTensor(const RankedTensor &old, hnnx::Allocator *allocator, clone_mode cmode) : Tensor(old, allocator, cmode)
+    API_EXPORT RankedTensor(const Op *producer_in) : Tensor(producer_in) {}
+    API_EXPORT RankedTensor(const Op *producer_in, hnnx::Deserializer &dctx) : Tensor(producer_in, dctx) {}
+    API_EXPORT RankedTensor(const RankedTensor &old, hnnx::Allocator *allocator, clone_mode cmode)
+        : Tensor(old, allocator, cmode)
     {
     }
     static constexpr auto Rank = TRank;
-    virtual inline const size_t rank() const noexcept override final { return Rank; }
-    template <typename... ind_types> inline GenericAccessorRO operator()(ind_types... inds) const
+    API_EXPORT virtual inline const size_t rank() const noexcept override final { return Rank; }
+    template <typename... ind_types> API_EXPORT inline GenericAccessorRO operator()(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const SIdx indarr[] = {static_cast<SIdx>(inds)...};
         return this->generic_accessor_ro(this->element_addr(Rank, indarr));
     }
-    template <typename... ind_types> inline GenericAccessor operator()(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline GenericAccessor operator()(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const SIdx indarr[] = {static_cast<SIdx>(inds)...};
@@ -1395,11 +1437,14 @@ template <unsigned TRank> class TensorShape : public RankedTensor<TRank> {
   protected:
     API_EXPORT static constexpr NullInterface null_interface{};
     // These functions are not really part of the interface, but we need them to implement operator()
-    virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept override final { return nullptr; }
-    virtual Interface const &interface() const noexcept override { return null_interface; }
+    API_EXPORT virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept override final
+    {
+        return nullptr;
+    }
+    API_EXPORT virtual Interface const &interface() const noexcept override { return null_interface; }
 
   public:
-    const char *true_name() const override { return type_name<TensorShape<TRank>>(); };
+    API_EXPORT const char *true_name() const override { return type_name<TensorShape<TRank>>(); };
 
     using Parent::Rank;
     struct traits {
@@ -1412,43 +1457,47 @@ template <unsigned TRank> class TensorShape : public RankedTensor<TRank> {
     //using Shape_t = Shape<Rank>;
     //const Shape_t *shape;
     const std::array<size_t, Rank> shape;
-    virtual const size_t dim(size_t index) const noexcept override final { return shape[index]; }
-    const std::array<size_t, Rank> &dims() const { return shape; };
-    template <typename... T> const std::array<size_t, sizeof...(T)> dims(T... indices) const
+    API_EXPORT virtual const size_t dim(size_t index) const noexcept override final { return shape[index]; }
+    API_EXPORT const std::array<size_t, Rank> &dims() const { return shape; };
+    template <typename... T> API_EXPORT const std::array<size_t, sizeof...(T)> dims(T... indices) const
     {
         std::array<size_t, sizeof...(indices)> dim_sizes = {dim(indices)...};
         return dim_sizes;
     }
-    virtual std::pair<size_t const *, size_t> get_dims() const noexcept override
+    API_EXPORT virtual std::pair<size_t const *, size_t> get_dims() const noexcept override
     {
         return std::pair<size_t const *, size_t>(&shape[0], Rank);
     }
-    virtual DTypeScaleOff get_dtype_intfc() const noexcept override { return DTypeScaleOff(); }
+    API_EXPORT virtual DTypeScaleOff get_dtype_intfc() const noexcept override { return DTypeScaleOff(); }
 
-    virtual uint32_t get_tensor_format_code() const noexcept override { return Tensor::formatcode_for_shape<Rank>(); }
-    virtual uint32_t get_tensor_info() const noexcept override
+    API_EXPORT virtual uint32_t get_tensor_format_code() const noexcept override
+    {
+        return Tensor::formatcode_for_shape<Rank>();
+    }
+
+    API_EXPORT virtual uint32_t get_tensor_info() const noexcept override
     {
         return hnnx::SerOpsInterface::tensMODE_shape << Tensor::tformat_tmode_shift;
     }
 
     // Optional, but maybe helpful?
-    virtual bool set_dims(const size_t dims[]) override
+    API_EXPORT virtual bool set_dims(const size_t dims[]) override
     {
         static_assert("Shapes are immutable");
         return true;
     } // immutable
-    virtual bool set_dims(const Tensor &prototype) override
+    API_EXPORT virtual bool set_dims(const Tensor &prototype) override
     {
         static_assert("Shapes are immutable");
         return true;
     } // immutable
     // EJP: FIXME: temporary functions
-    virtual void *raw_data() noexcept override
+    API_EXPORT virtual void *raw_data() noexcept override
     {
         return nullptr;
     } // Allocate storage ourselves instead of fancy memory allocator
-    virtual size_t total_storage_elements() const override { return 0; }
-    virtual size_t total_storage_bytes() const override { return 0; }
+    API_EXPORT virtual size_t total_storage_elements() const override { return 0; }
+    API_EXPORT virtual size_t total_storage_bytes() const override { return 0; }
     TensorShape(const Op *producer_in, const OutputDef &def, Graph &graph_in)
         : Parent(producer_in), shape(hnnx::ptr_to_stdarray<Rank, size_t>(&def.max_sizes[0]))
     {
@@ -1462,12 +1511,12 @@ template <unsigned TRank> class TensorShape : public RankedTensor<TRank> {
     {
     }
 
-    virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &) const override { return; }
+    API_EXPORT virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &) const override { return; }
 
-    virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) override final {}
+    API_EXPORT virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) override final {}
 
-    virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
-                              Tensor::tensor_blockinfo *infop) const override
+    API_EXPORT virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
+                                         Tensor::tensor_blockinfo *infop) const override
     {
         if (tensp) *tensp = std::make_unique<TensorShape>(*this, allocator, Tensor::clone_mode::duplicate);
         if (infop) infop->setup();
@@ -1475,7 +1524,7 @@ template <unsigned TRank> class TensorShape : public RankedTensor<TRank> {
     }
 
   protected:
-    virtual int compare_sametype(const Tensor *rhs_in) const override
+    API_EXPORT virtual int compare_sametype(const Tensor *rhs_in) const override
     {
         auto *rhs = static_cast<const TensorShape *>(rhs_in);
         for (int i = 0; i < Rank; i++) {
@@ -1484,11 +1533,11 @@ template <unsigned TRank> class TensorShape : public RankedTensor<TRank> {
         }
         return 0;
     }
-    virtual uint32_t find_content_hash() const noexcept override
+    API_EXPORT virtual uint32_t find_content_hash() const noexcept override
     {
         return Tensor::build_hash(&shape[0], Rank, 0x113014);
     }
-    static const char *code_to_type_name() { return TensorTypeStruct<TensorShape<TRank>>::name; }
+    API_EXPORT static const char *code_to_type_name() { return TensorTypeStruct<TensorShape<TRank>>::name; }
 };
 
 /*
@@ -1512,33 +1561,35 @@ template <DType DT> class TensorSclrDT : public Tensor {
     Interface_t interface_inst;
 
   public:
-    virtual Interface_t const &interface() const noexcept override final { return interface_inst; }
-    inline float interface_scale() const { return interface_inst.get_scale(); }
-    inline float interface_scale_recip() const { return interface_inst.get_scale_recip(); }
-    inline int32_t interface_offset() const { return interface_inst.get_offset(); }
+    API_EXPORT virtual Interface_t const &interface() const noexcept override final { return interface_inst; }
+    API_EXPORT inline float interface_scale() const { return interface_inst.get_scale(); }
+    API_EXPORT inline float interface_scale_recip() const { return interface_inst.get_scale_recip(); }
+    API_EXPORT inline int32_t interface_offset() const { return interface_inst.get_offset(); }
 
-    virtual uint32_t get_tensor_format_code() const noexcept override
+    API_EXPORT virtual uint32_t get_tensor_format_code() const noexcept override
     {
         return Tensor::formatcode_for_scalar<Interface_t>();
     }
-    virtual uint32_t get_tensor_info() const noexcept override
+
+    API_EXPORT virtual uint32_t get_tensor_info() const noexcept override
     {
         return hnnx::SerOpsInterface::tensMODE_scalar << tformat_tmode_shift;
     }
 
-  protected:
     // EJP: FIXME: this should just be the value, but then GenericAccessor constructor
     // complains about const value going to a const Accessor where the constructor in
     // const Accessor is written to have a normal void pointer input... sigh.
     T value;
+
+  protected:
     // These functions are not really part of the interface, but we need them to implement operator()
-    virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept override final
+    API_EXPORT virtual void *element_addr(size_t rank, SIdx const coords_in[]) const noexcept override final
     {
         return (void *)&value;
     }
 
   public:
-    const char *true_name() const override { return type_name<TensorSclrDT<DT>>(); };
+    API_EXPORT const char *true_name() const override { return type_name<TensorSclrDT<DT>>(); };
 
     struct traits {
         using element_type = T;
@@ -1548,63 +1599,69 @@ template <DType DT> class TensorSclrDT : public Tensor {
         static constexpr unsigned rank = 0;
     };
 
-    virtual const size_t rank() const noexcept override { return 0; } // What's the rank of this tensor?
-    virtual const size_t dim(size_t index) const noexcept override { return 1; } // What's the length of some dimension?
-    virtual std::pair<size_t const *, size_t> get_dims() const noexcept override
+    API_EXPORT virtual const size_t rank() const noexcept override { return 0; } // What's the rank of this tensor?
+    API_EXPORT virtual const size_t dim(size_t index) const noexcept override
+    {
+        return 1;
+    } // What's the length of some dimension?
+    API_EXPORT virtual std::pair<size_t const *, size_t> get_dims() const noexcept override
     {
         return std::pair<size_t const *, size_t>(nullptr, 0);
     }
     static constexpr DType dtype = dtype_of_type<Interface_t>();
-    virtual DTypeScaleOff get_dtype_intfc() const noexcept override { return DTypeScaleOff(dtype, interface()); }
+    API_EXPORT virtual DTypeScaleOff get_dtype_intfc() const noexcept override
+    {
+        return DTypeScaleOff(dtype, interface());
+    }
 
     // Optional, but maybe helpful?
-    virtual bool set_dims(const size_t dims[]) override
+    API_EXPORT virtual bool set_dims(const size_t dims[]) override
     {
         static_assert("Scalar dims are immutable");
         return true;
     } // immutable
-    virtual bool set_dims(const Tensor &prototype) override
+    API_EXPORT virtual bool set_dims(const Tensor &prototype) override
     {
         static_assert("Scalar dims are immutable");
         return true;
     } // immutable
     // EJP: FIXME: temporary functions
-    virtual void *raw_data() noexcept override final
+    API_EXPORT virtual void *raw_data() noexcept override final
     {
         return &value;
     } // Allocate storage ourselves instead of fancy memory allocator
-    const void *raw_data() const noexcept
+    API_EXPORT const void *raw_data() const noexcept
     {
         return &value;
     } // Allocate storage ourselves instead of fancy memory allocator
-    virtual size_t total_storage_elements() const override { return 0; }
-    virtual size_t total_storage_bytes() const override { return 0; }
-    virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) override final {}
-    TensorSclrDT(const Op *producer_in, T value_in) : Tensor(producer_in), value(value_in)
+    API_EXPORT virtual size_t total_storage_elements() const override { return 0; }
+    API_EXPORT virtual size_t total_storage_bytes() const override { return 0; }
+    API_EXPORT virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) override final {}
+    API_EXPORT TensorSclrDT(const Op *producer_in, T value_in) : Tensor(producer_in), value(value_in)
     {
         static_assert(!dtype_traits<DT>::is_quant, "FIXME: need different constructor");
     }
-    TensorSclrDT(const Op *producer_in, hnnx::Deserializer &dctx)
+    API_EXPORT TensorSclrDT(const Op *producer_in, hnnx::Deserializer &dctx)
         : Tensor(producer_in, dctx), interface_inst(dctx), value(dctx.deserialize_type<T>())
     {
     }
-    TensorSclrDT(const TensorSclrDT &old, hnnx::Allocator *allocator, clone_mode cmode)
+    API_EXPORT TensorSclrDT(const TensorSclrDT &old, hnnx::Allocator *allocator, clone_mode cmode)
         : Tensor(old, allocator, cmode), interface_inst(old.interface_inst), value(old.value)
     {
     }
 
-    template <typename... ind_types> inline const Const_Accessor_t operator()(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline const Const_Accessor_t operator()(ind_types... inds) const
     {
         return Const_Accessor_t((void *)&value, this->interface());
     }
-    template <typename... ind_types> inline Accessor_t operator()(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline Accessor_t operator()(ind_types... inds)
     {
         return Accessor_t(&value, this->interface());
     }
-    virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &) const override { return; }
+    API_EXPORT virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &) const override { return; }
 
-    virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
-                              Tensor::tensor_blockinfo *infop) const override
+    API_EXPORT virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
+                                         Tensor::tensor_blockinfo *infop) const override
     {
         if (tensp) *tensp = std::make_unique<TensorSclrDT>(*this, allocator, clone_mode::duplicate);
         if (infop) infop->setup(DT);
@@ -1612,19 +1669,19 @@ template <DType DT> class TensorSclrDT : public Tensor {
     }
 
   protected:
-    virtual int compare_sametype(const Tensor *rhs_in) const override
+    API_EXPORT virtual int compare_sametype(const Tensor *rhs_in) const override
     {
         auto *rhs = static_cast<const TensorSclrDT *>(rhs_in);
         if (this->value < rhs->value) return -1;
         if (this->value == rhs->value) return 0;
         return 1;
     }
-    virtual uint32_t find_content_hash() const noexcept override
+    API_EXPORT virtual uint32_t find_content_hash() const noexcept override
     {
         uint32_t const h = interface().interface_hash() ^ mulu32_modular(unsigned(DT), 0x107301);
         return mulu32_modular(h, 0x104301) ^ content_hash_data(&this->value, sizeof(T), dtype_traits<DT>::is_float);
     }
-    static const char *code_to_type_name() { return TensorTypeStruct<TensorSclrDT<DT>>::name; }
+    API_EXPORT static const char *code_to_type_name() { return TensorTypeStruct<TensorSclrDT<DT>>::name; }
 };
 // Tensor Scalar depending on type (assuming PlainInterface)
 
@@ -1649,32 +1706,32 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_co
 
     storage_type *bulk_data;
 
-    inline layout_mem_contig(Shape_t const *shp, Graph &graph_in) : bulk_data(){};
+    API_EXPORT inline layout_mem_contig(Shape_t const *shp, Graph &graph_in) : bulk_data(){};
 
     // duplicate clone from another
-    inline layout_mem_contig(Shape_t const *shp, layout_mem_contig const &other, hnnx::Allocator *alloc,
-                             Tensor::clone_mode cmode)
+    API_EXPORT inline layout_mem_contig(Shape_t const *shp, layout_mem_contig const &other, hnnx::Allocator *alloc,
+                                        Tensor::clone_mode cmode)
         : bulk_data(other.bulk_data)
     {
     }
 
     // construct from deserialize
-    layout_mem_contig(Shape_t const *, hnnx::Deserializer &dctx)
+    API_EXPORT layout_mem_contig(Shape_t const *, hnnx::Deserializer &dctx)
         : bulk_data((storage_type *)Tensor::deserialize_block_pointer(dctx))
     {
     }
 
     // this implements raw_data in the containing tensor
-    inline ALWAYSINLINE void *raw_data() const noexcept { return (void *)bulk_data; }
+    API_EXPORT inline ALWAYSINLINE void *raw_data() const noexcept { return (void *)bulk_data; }
 
     // this implements set_raw_data_despite_danger(void *buffer) override final { bulk_data = static_cast<T *>(buffer); }
-    inline ALWAYSINLINE void set_raw_data_despite_danger(void *buffer)
+    API_EXPORT inline ALWAYSINLINE void set_raw_data_despite_danger(void *buffer)
     {
         bulk_data = static_cast<storage_type *>(buffer);
     }
 
     // this implements element_addr in the containing tensor.
-    ALWAYSINLINE void *element_addr(Shape_t const *shp, size_t rank, SIdx const coords_in[]) const noexcept
+    API_EXPORT ALWAYSINLINE void *element_addr(Shape_t const *shp, size_t rank, SIdx const coords_in[]) const noexcept
     {
         //assert(rank == Rank);
         const std::array<size_t, Rank> padded_coords =
@@ -1683,35 +1740,38 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_co
         return (void *)&bulk_data[offset];
     }
 
+    PUSH_WARNING()
+    DISABLE_WARNING("-Wcast-qual", MSVC_NO_EQUIV)
     // get pointer to block table, and length
-    inline ALWAYSINLINE void **get_block_list_ptr() const { return (void **)&bulk_data; }
-    static inline ALWAYSINLINE size_t get_block_list_len(Shape_t const *shp) { return 1; }
+    API_EXPORT inline ALWAYSINLINE void **get_block_list_ptr() const { return (void **)&bulk_data; }
+    POP_WARNING()
+    API_EXPORT static inline ALWAYSINLINE size_t get_block_list_len(Shape_t const *shp) { return 1; }
     // block size for allocation
-    inline ALWAYSINLINE static size_t get_elements_per_block(Shape_t const *shp)
+    API_EXPORT inline ALWAYSINLINE static size_t get_elements_per_block(Shape_t const *shp)
     {
         return std::accumulate(shp->max_dims.cbegin(), shp->max_dims.cend(), 1, std::multiplies<size_t>());
     }
     // find the address of the block pointer containing the specified coords.
     // (not used for contig. tensor, but this is reasonable impl).
-    inline storage_type **block_ptr_addr(Shape_t const *shape, std::array<SIdx, Rank> coords) const
+    API_EXPORT inline storage_type **block_ptr_addr(Shape_t const *shape, std::array<SIdx, Rank> coords) const
     {
         return &bulk_data;
     }
     // dummy for this
-    inline void realloc_blocktab(hnnx::Allocator *alloc, Shape_t const *old_shape, Shape_t const *new_shape)
+    API_EXPORT inline void realloc_blocktab(hnnx::Allocator *alloc, Shape_t const *old_shape, Shape_t const *new_shape)
     {
         bulk_data = nullptr;
     }
 
     // compare memory (raw compare)
-    int compare_memory(Shape_t const *shp, layout_mem_contig const &rhs) const
+    API_EXPORT int compare_memory(Shape_t const *shp, layout_mem_contig const &rhs) const
     {
         size_t const len = get_elements_per_block(shp) * sizeof(storage_type);
         return memcmp(bulk_data, rhs.bulk_data, len);
     }
     // find content hash of memory.
     //
-    uint32_t find_content_hash(Shape_t const *shp, uint32_t oldhash, bool is_float) const
+    API_EXPORT uint32_t find_content_hash(Shape_t const *shp, uint32_t oldhash, bool is_float) const
     {
         size_t const len = get_elements_per_block(shp) * sizeof(storage_type);
         return mulu32_modular(oldhash, 0x223131) ^ Tensor::content_hash_data(bulk_data, len, is_float);
@@ -1720,18 +1780,18 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_co
 
 /// >> for indirect tensors
 namespace indirect_layout_mem {
-inline void **make_blocktab(size_t n_blocks, Graph &graph_in)
+API_EXPORT inline void **make_blocktab(size_t n_blocks, Graph &graph_in)
 {
     return hnnx::graph_crate(graph_in)->alloc_array_zero<void *>(n_blocks);
 }
 
-inline void **make_blocktab_for_overwrite(const size_t n_blocks, Graph &graph_in)
+API_EXPORT inline void **make_blocktab_for_overwrite(const size_t n_blocks, Graph &graph_in)
 {
     return hnnx::graph_crate(graph_in)->alloc_array<void *>(n_blocks);
 }
 
 // TODO: make this not inline.
-inline int compare_indirect_blocks(void **ptr_a, void **ptr_b, size_t nblocks, size_t blocklen)
+API_EXPORT inline int compare_indirect_blocks(void **ptr_a, void **ptr_b, size_t nblocks, size_t blocklen)
 {
     for (size_t i = 0; i < nblocks; i++) {
         int const cmp = memcmp(ptr_a[i], ptr_b[i], blocklen);
@@ -1752,13 +1812,13 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_in
     storage_type **blocktab;
 
     // construct table
-    layout_mem_indirect(Shape_t const *shp, Graph &graph_in)
+    API_EXPORT layout_mem_indirect(Shape_t const *shp, Graph &graph_in)
         : blocktab((storage_type **)indirect_layout_mem::make_blocktab(layout.num_blocks(shp->max_dims), graph_in))
     {
     }
     // duplicate clone from another
-    layout_mem_indirect(Shape_t const *shp, layout_mem_indirect const &other, hnnx::Allocator *alloc,
-                        Tensor::clone_mode cmode)
+    API_EXPORT layout_mem_indirect(Shape_t const *shp, layout_mem_indirect const &other, hnnx::Allocator *alloc,
+                                   Tensor::clone_mode cmode)
         : blocktab()
     {
         unsigned const nblocks = layout.num_blocks(shp->max_dims);
@@ -1766,21 +1826,21 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_in
         std::memcpy(blocktab, other.blocktab, sizeof(void *) * nblocks);
     }
     // construct from deserialize
-    layout_mem_indirect(Shape_t const *shp, hnnx::Deserializer &dctx) : blocktab()
+    API_EXPORT layout_mem_indirect(Shape_t const *shp, hnnx::Deserializer &dctx) : blocktab()
     {
         blocktab = (storage_type **)Tensor::deserialize_blocktable(dctx, layout.num_blocks(shp->max_dims));
     }
 
     // this implements raw_data in the containing tensor
-    inline ALWAYSINLINE void *raw_data() const noexcept { return (void *)blocktab[0]; }
+    API_EXPORT inline ALWAYSINLINE void *raw_data() const noexcept { return (void *)blocktab[0]; }
     // this implements set_raw_data_despite_danger(void *buffer) override final { bulk_data = static_cast<T *>(buffer); }
-    inline void set_raw_data_despite_danger(void *buffer)
+    API_EXPORT inline void set_raw_data_despite_danger(void *buffer)
     {
         assert(!"Invalid to set raw pointer on this type of tensor");
     }
 
     // this implements element_addr in the containing tensor.
-    ALWAYSINLINE void *element_addr(Shape_t const *shp, size_t rank, SIdx const coords_in[]) const noexcept
+    API_EXPORT ALWAYSINLINE void *element_addr(Shape_t const *shp, size_t rank, SIdx const coords_in[]) const noexcept
     {
         assert(rank == Rank);
         std::array<size_t, Rank> const padded_coords =
@@ -1790,15 +1850,15 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_in
         return (void *)&blocktab[block_idx][block_offset];
     }
     // get pointer to block table, and length
-    inline ALWAYSINLINE void **get_block_list_ptr() const { return (void **)blocktab; }
-    static inline ALWAYSINLINE size_t get_block_list_len(Shape_t const *shp)
+    API_EXPORT inline ALWAYSINLINE void **get_block_list_ptr() const { return (void **)blocktab; }
+    API_EXPORT static inline ALWAYSINLINE size_t get_block_list_len(Shape_t const *shp)
     {
         return layout.num_blocks(shp->max_dims);
     }
     // block size for allocation
-    inline ALWAYSINLINE static size_t get_elements_per_block(Shape_t const *) { return layout.chunk_total; }
+    API_EXPORT inline ALWAYSINLINE static size_t get_elements_per_block(Shape_t const *) { return layout.chunk_total; }
     // find the address of the block pointer containing the specified coords.
-    inline storage_type **block_ptr_addr(Shape_t const *shape, std::array<SIdx, Rank> coords) const
+    API_EXPORT inline storage_type **block_ptr_addr(Shape_t const *shape, std::array<SIdx, Rank> coords) const
     {
         std::array<size_t, Rank> const padded_coords = pad.pad_coords(coords, shape->pad);
         size_t const block_idx = layout.chunk_index(padded_coords, shape->max_dims);
@@ -1807,7 +1867,7 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_in
     // reallocate for change from old_shape to new_shape (typically just the padding
     // is changed) and zero the blocktab. If the shape is not actually changed, or if
     // the blocktab isn't larger than before, we keep the old one, but we still clear it.
-    inline void realloc_blocktab(hnnx::Allocator *alloc, Shape_t const *old_shape, Shape_t const *new_shape)
+    API_EXPORT inline void realloc_blocktab(hnnx::Allocator *alloc, Shape_t const *old_shape, Shape_t const *new_shape)
     {
         unsigned const nblocks = layout.num_blocks(new_shape->max_dims);
         if (old_shape != new_shape) {
@@ -1821,7 +1881,7 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_in
     }
 
     // compare memory (raw compare)
-    int compare_memory(Shape_t const *shp, layout_mem_indirect const &rhs) const
+    API_EXPORT int compare_memory(Shape_t const *shp, layout_mem_indirect const &rhs) const
     {
         size_t const nblocks = layout.num_blocks(shp->max_dims);
         size_t const blocklen = sizeof(storage_type) * layout.chunk_total;
@@ -1830,7 +1890,7 @@ template <typename STYPE, typename TLayout, typename Pad_t> struct layout_mem_in
     }
     // find content hash of memory.
     //
-    uint32_t find_content_hash(Shape_t const *shp, uint32_t oldhash, bool is_float) const
+    API_EXPORT uint32_t find_content_hash(Shape_t const *shp, uint32_t oldhash, bool is_float) const
     {
         size_t const nblocks = layout.num_blocks(shp->max_dims);
         size_t const blocklen = sizeof(storage_type) * layout.chunk_total;
@@ -1853,7 +1913,7 @@ template <typename Linfo> class BlockTableAccessor {
     // stride for dim RANK-1  is 1; blkstrides[0] is the whole size.
     std::array<unsigned, Rank> margin; // margin offset
   public:
-    explicit BlockTableAccessor(LayoutTensor<Linfo> const &tens) : blktab(tens.blocktab_ptr())
+    API_EXPORT explicit BlockTableAccessor(LayoutTensor<Linfo> const &tens) : blktab(tens.blocktab_ptr())
     {
         Shape<Rank> const &shp = *tens.shape;
         size_t allprod = 1;
@@ -1869,25 +1929,25 @@ template <typename Linfo> class BlockTableAccessor {
     // methods which have the same name as tensor methods, do
     // the same thing here.
 
-    inline static constexpr unsigned rank() { return Rank; }
+    API_EXPORT inline static constexpr unsigned rank() { return Rank; }
 
-    inline size_t blocktab_len() const { return blkstrides[0]; }
-    inline pointer_type *blocktab_ptr() const { return blktab; }
-    inline size_t blocktab_blocksize() const { return TLayout::chunk_total; };
-    inline size_t blocktab_blocksize_bytes() const { return TLayout::chunk_total * sizeof(storage_type); };
+    API_EXPORT inline size_t blocktab_len() const { return blkstrides[0]; }
+    API_EXPORT inline pointer_type *blocktab_ptr() const { return blktab; }
+    API_EXPORT inline size_t blocktab_blocksize() const { return TLayout::chunk_total; };
+    API_EXPORT inline size_t blocktab_blocksize_bytes() const { return TLayout::chunk_total * sizeof(storage_type); };
 
-    inline size_t blocktab_dim(int i) const { return blkdims[i]; }
-    inline size_t blocktab_dim_stride(int i) const { return (i < Rank - 1) ? blkstrides[i + 1] : 1; }
+    API_EXPORT inline size_t blocktab_dim(int i) const { return blkdims[i]; }
+    API_EXPORT inline size_t blocktab_dim_stride(int i) const { return (i < Rank - 1) ? blkstrides[i + 1] : 1; }
 
     // block_ptr_address(b,h,w,d) and block_ptr accept element coordinates.
 
-    template <typename... ind_types> inline pointer_type *block_ptr_address(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline pointer_type *block_ptr_address(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return block_ptr_calc(coords);
     }
-    template <typename... ind_types> inline pointer_type &block_ptr(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline pointer_type &block_ptr(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
@@ -1895,21 +1955,21 @@ template <typename Linfo> class BlockTableAccessor {
     }
     // blktab(b,h,w,d) accepts *block* coords
     //
-    template <typename... ind_types> inline pointer_type &blocktab(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline pointer_type &blocktab(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return *blktab_ptr_calc(coords);
     }
     // same_table_shape: the shape of the table is the same as the 'other'.
-    bool same_table_shape(BlockTableAccessor const &other) const
+    API_EXPORT bool same_table_shape(BlockTableAccessor const &other) const
     {
         for (int i = 0; i < Rank; i++)
             if (blkdims[i] != other.blkdims[i]) return false;
         return true;
     }
     // 'same_layout' means the same table shape and the same padding offset. Dims may not be identical.
-    bool same_layout(BlockTableAccessor const &other) const
+    API_EXPORT bool same_layout(BlockTableAccessor const &other) const
     {
         if (!same_table_shape(other)) return false;
         for (int i = 0; i < Rank; i++)
@@ -1918,7 +1978,7 @@ template <typename Linfo> class BlockTableAccessor {
     }
 
   protected:
-    pointer_type *block_ptr_calc(std::array<SIdx, Rank> const &coords) const
+    API_EXPORT pointer_type *block_ptr_calc(std::array<SIdx, Rank> const &coords) const
     {
         size_t sum = 0;
         for (int i = 0; i < Rank; i++) {
@@ -1928,7 +1988,7 @@ template <typename Linfo> class BlockTableAccessor {
         }
         return blktab + sum;
     }
-    pointer_type *blktab_ptr_calc(std::array<SIdx, Rank> const &coords) const
+    API_EXPORT pointer_type *blktab_ptr_calc(std::array<SIdx, Rank> const &coords) const
     {
         size_t sum = coords[Rank - 1];
         for (int i = 0; i < Rank - 1; i++) {
@@ -1954,14 +2014,14 @@ template <typename Linfo> class BlockTableAccessor {
 template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> {
   protected:
     using BaseRT = RankedTensor<Linfo::Rank>;
-    static constexpr unsigned Rank = Linfo::Rank;
+    API_EXPORT static constexpr unsigned Rank = Linfo::Rank;
     using storage_type = typename Linfo::storage_type;
     using TLayout = typename Linfo::Tlayout;
     using Pad_t = typename Linfo::Pad_t;
-    static constexpr bool is_chunked = Linfo::is_chunked;
+    API_EXPORT static constexpr bool is_chunked = Linfo::is_chunked;
     static_assert(is_chunked == (TLayout::chunk_total > 1));
-    static constexpr bool is_indirect = Linfo::is_indirect;
-    static constexpr bool is_padded = !std::is_same<Pad_t, NoPadding<Rank>>::value;
+    API_EXPORT static constexpr bool is_indirect = Linfo::is_indirect;
+    API_EXPORT static constexpr bool is_padded = !std::is_same<Pad_t, NoPadding<Rank>>::value;
 
     static_assert(!(is_indirect && !is_chunked), "non-chunked layouts can't be indirect");
 
@@ -1970,8 +2030,11 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
 
   public:
     Shape_t const *shape;
-    static constexpr TLayout layout{};
-    static constexpr Pad_t pad{};
+    API_EXPORT static constexpr TLayout layout{};
+    API_EXPORT static constexpr Pad_t pad{};
+#ifndef PREPARE_DISABLED
+    std::string get_shape_info() const override { return shape->get_shape_info(); }
+#endif
 
   protected: // interface, then shape, then mem
     using layout_mem_t = std::conditional_t<is_indirect, layout_mem_indirect<storage_type, TLayout, Pad_t>,
@@ -1979,7 +2042,7 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
     layout_mem_t mem;
 
   public:
-    struct traits {
+    struct API_EXPORT traits {
         using storage_type = LayoutTensor::storage_type;
         using raw_type = LayoutTensor::storage_type; // result from get_raw()
         static constexpr unsigned rank = Rank;
@@ -1994,8 +2057,8 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
   protected:
     // ctors are marked noinline; otherwise they just get inlined
     // into all the ConcreteTensor ctors, which isn't really helpful.
-    [[gnu::noinline]] LayoutTensor(const Op *producer_in, const OutputDef &def, Graph &graph_in,
-                                   Interface const *(*ifc_maker)(Graph &, OutputDef const &))
+    [[gnu::noinline]] API_EXPORT LayoutTensor(const Op *producer_in, const OutputDef &def, Graph &graph_in,
+                                              Interface const *(*ifc_maker)(Graph &, OutputDef const &))
         : BaseRT(producer_in), interface_ptr((*ifc_maker)(graph_in, def)),
           shape(Shape_t::canonical_shape(
                   graph_in, Shape_t(hnnx::ptr_to_stdarray<Rank, size_t>(&def.max_sizes[0]),
@@ -2003,63 +2066,67 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
           mem(shape, graph_in)
     {
     }
-    [[gnu::noinline]] LayoutTensor(const Op *producer_in, hnnx::Deserializer &dctx,
-                                   Interface const *(*ifc_deser_fp)(hnnx::Deserializer &))
+    [[gnu::noinline]] API_EXPORT LayoutTensor(const Op *producer_in, hnnx::Deserializer &dctx,
+                                              Interface const *(*ifc_deser_fp)(hnnx::Deserializer &))
         : BaseRT(producer_in, dctx), interface_ptr((*ifc_deser_fp)(dctx)), shape(Shape_t::deserialize(dctx)),
           mem(shape, dctx)
     {
     }
     // clone ctor.
-    [[gnu::noinline]] LayoutTensor(const LayoutTensor &old, hnnx::Allocator *allocator, Tensor::clone_mode cmode)
+    [[gnu::noinline]] API_EXPORT LayoutTensor(const LayoutTensor &old, hnnx::Allocator *allocator,
+                                              Tensor::clone_mode cmode)
         : BaseRT(old, allocator, cmode), interface_ptr(old.interface_ptr), shape(old.shape),
           mem(shape, old.mem, allocator, cmode)
     {
     }
 
   public:
-    virtual const inline size_t dim(size_t index) const noexcept override final { return shape->dims[index]; }
-    const std::array<size_t, Rank> &dims() const { return shape->dims; };
-    template <typename... T> const std::array<size_t, sizeof...(T)> dims(T... indices) const
+    API_EXPORT virtual const inline size_t dim(size_t index) const noexcept override final
+    {
+        return shape->dims[index];
+    }
+    API_EXPORT const std::array<size_t, Rank> &dims() const { return shape->dims; };
+    template <typename... T> API_EXPORT const std::array<size_t, sizeof...(T)> dims(T... indices) const
     {
         std::array<size_t, sizeof...(indices)> dim_sizes = {dim(indices)...};
         return dim_sizes;
     }
-    virtual std::pair<size_t const *, size_t> get_dims() const noexcept final
+    API_EXPORT virtual std::pair<size_t const *, size_t> get_dims() const noexcept final
     {
         return std::pair<size_t const *, size_t>(&shape->dims[0], Rank);
     }
 #if defined(NDEBUG) || defined(NO_SETDIMS_CHECK)
-    virtual inline bool set_dims(const size_t dims[]) override final { return false; }
-    virtual inline bool set_dims(const Tensor &prototype) override final { return false; }
+    API_EXPORT virtual inline bool set_dims(const size_t dims[]) override final { return false; }
+    API_EXPORT virtual inline bool set_dims(const Tensor &prototype) override final { return false; }
 #else
-    virtual inline bool set_dims(const size_t dims[]) override
+    API_EXPORT virtual inline bool set_dims(const size_t dims[]) override
     {
         for (int i = 0; i < Rank; i++) {
             assert(dims[i] == shape->dims[i]);
         }
         return false;
     }
-    virtual inline bool set_dims(const Tensor &prototype) override
+    API_EXPORT virtual inline bool set_dims(const Tensor &prototype) override
     {
         auto [dims_p, dims_n] = prototype.get_dims();
         assert(dims_n == Rank);
         return set_dims(dims_p);
     }
 #endif
-    virtual Interface const &interface() const noexcept override { return *interface_ptr; }
-    inline float interface_scale() const { return interface().get_scale(); }
-    inline float interface_scale_recip() const { return interface().get_scale_recip(); }
-    inline int32_t interface_offset() const { return interface().get_offset(); }
+    API_EXPORT virtual Interface const &interface() const noexcept override { return *interface_ptr; }
+    API_EXPORT inline float interface_scale() const { return interface().get_scale(); }
+    API_EXPORT inline float interface_scale_recip() const { return interface().get_scale_recip(); }
+    API_EXPORT inline int32_t interface_offset() const { return interface().get_offset(); }
 
     // for direct access to bulk_data, in contiguous tensors only
     //  data_ptr() can be assigned to.
-    inline std::conditional_t<is_indirect, void, storage_type *&> data_ptr()
+    API_EXPORT inline std::conditional_t<is_indirect, void, storage_type *&> data_ptr()
     {
         if constexpr (!is_indirect) {
             return mem.bulk_data;
         }
     }
-    inline std::conditional_t<is_indirect, void, storage_type *const &> data_ptr() const
+    API_EXPORT inline std::conditional_t<is_indirect, void, storage_type *const &> data_ptr() const
     {
         if constexpr (!is_indirect) {
             return mem.bulk_data;
@@ -2067,8 +2134,8 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
     }
 
     // block table access
-    inline storage_type **blocktab_ptr() const { return (storage_type **)mem.get_block_list_ptr(); }
-    inline storage_type *&blocktab_at(size_t i)
+    API_EXPORT inline storage_type **blocktab_ptr() const { return (storage_type **)mem.get_block_list_ptr(); }
+    API_EXPORT inline storage_type *&blocktab_at(size_t i)
     {
         if constexpr (!is_indirect) {
             assert(i == 0);
@@ -2077,7 +2144,7 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
             return ((storage_type **)mem.get_block_list_ptr())[i];
         }
     }
-    inline storage_type *const &blocktab_at(size_t i) const
+    API_EXPORT inline storage_type *const &blocktab_at(size_t i) const
     {
         if constexpr (!is_indirect) {
             assert(i == 0);
@@ -2086,28 +2153,34 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
             return ((storage_type **)mem.get_block_list_ptr())[i];
         }
     }
-    inline size_t blocktab_len() const { return mem.get_block_list_len(shape); }
-    inline size_t blocktab_blocksize() const { return mem.get_elements_per_block(shape); }
-    inline size_t blocktab_blocksize_bytes() const { return mem.get_elements_per_block(shape) * sizeof(storage_type); }
+    API_EXPORT inline size_t blocktab_len() const { return mem.get_block_list_len(shape); }
+    API_EXPORT inline size_t blocktab_blocksize() const { return mem.get_elements_per_block(shape); }
+    API_EXPORT inline size_t blocktab_blocksize_bytes() const
+    {
+        return mem.get_elements_per_block(shape) * sizeof(storage_type);
+    }
 
     // TODO: make total_storage elements have an optional bool parameter
     // to return in bytes; and then total_storage_bytes is a wrapper.
-    virtual inline size_t total_storage_bytes() const final override
+    API_EXPORT virtual inline size_t total_storage_bytes() const final override
     {
         return total_storage_elements() * sizeof(storage_type);
     }
-    virtual inline size_t total_storage_elements() const final override
+    API_EXPORT virtual inline size_t total_storage_elements() const final override
     {
         size_t const total_elements =
                 std::accumulate(shape->max_dims.cbegin(), shape->max_dims.cend(), 1, std::multiplies<size_t>());
         return total_elements;
     }
-    virtual void *raw_data() noexcept override final { return mem.raw_data(); }
-    virtual void set_raw_data_despite_danger(void *buffer) override final { mem.set_raw_data_despite_danger(buffer); }
+    API_EXPORT virtual void *raw_data() noexcept override final { return mem.raw_data(); }
+    API_EXPORT virtual void set_raw_data_despite_danger(void *buffer) override final
+    {
+        mem.set_raw_data_despite_danger(buffer);
+    }
 
     // change the padding; and reallocate blocktab if it's larger as a result.
     // in any case, all of the block pointers are zeroed.
-    void change_pad(std::array<size_t, Rank> const &new_pad, hnnx::Allocator &allocator)
+    API_EXPORT void change_pad(std::array<size_t, Rank> const &new_pad, hnnx::Allocator &allocator)
     {
         Shape_t newshape = *shape; // copy old shape
         for (int i = 0; i < Rank; i++)
@@ -2120,26 +2193,27 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
         mem.realloc_blocktab(&allocator, shape, new_shape_p);
         shape = new_shape_p;
     }
-    template <typename... ind_types> inline storage_type const *const *block_ptr_address(ind_types... inds) const
+    template <typename... ind_types>
+    API_EXPORT inline storage_type const *const *block_ptr_address(ind_types... inds) const
     {
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return mem.block_ptr_addr(shape, coords);
     }
-    template <typename... ind_types> inline storage_type *const *block_ptr_address(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline storage_type *const *block_ptr_address(ind_types... inds)
     {
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return mem.block_ptr_addr(shape, coords);
     }
-    template <typename... ind_types> inline storage_type const *block_ptr(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline storage_type const *block_ptr(ind_types... inds) const
     {
         return *block_ptr_address(inds...);
     }
-    template <typename... ind_types> inline storage_type *block_ptr(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline storage_type *block_ptr(ind_types... inds)
     {
         return *block_ptr_address(inds...);
     }
 
-    std::conditional_t<is_indirect, BlockTableAccessor<Linfo>, void> blocktable_accessor() const
+    API_EXPORT std::conditional_t<is_indirect, BlockTableAccessor<Linfo>, void> blocktable_accessor() const
     {
         if constexpr (is_indirect) {
             return BlockTableAccessor<Linfo>(*this);
@@ -2147,12 +2221,12 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
     }
 
     // this only makes sense for indirect tensors.
-    std::conditional_t<is_indirect, std::array<size_t, Rank>, void> tile_strides() const
+    API_EXPORT std::conditional_t<is_indirect, std::array<size_t, Linfo::Rank>, void> tile_strides() const
     {
         if constexpr (is_indirect) {
-            std::array<size_t, Rank> ret = {0};
-            ret[Rank - 1] = 1;
-            for (int i = Rank - 2; i >= 0; i--) {
+            std::array<size_t, Linfo::Rank> ret = {0};
+            ret[Linfo::Rank - 1] = 1;
+            for (int i = Linfo::Rank - 2; i >= 0; i--) {
                 ret[i] = ret[i + 1] * (shape->max_dims[i + 1] / layout.ChunkSizes[i + 1]);
             }
             return ret;
@@ -2160,45 +2234,46 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
     }
 
     // get_raw_addr(...) on this class gives a storage_type *.
-    template <typename... ind_types> inline storage_type const *get_raw_addr(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline storage_type const *get_raw_addr(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return (storage_type const *)this->element_addr(Rank, coords.data());
     }
-    template <typename... ind_types> inline storage_type *get_raw_addr(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline storage_type *get_raw_addr(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return (storage_type *)this->element_ptr(Rank, coords.data());
     }
-    template <typename... ind_types> inline storage_type const &get_raw(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline storage_type const &get_raw(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return *(storage_type const *)this->element_addr(Rank, coords.data());
     }
-    template <typename... ind_types> inline storage_type &get_raw(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline storage_type &get_raw(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return *(storage_type *)this->element_addr(Rank, coords.data());
     }
     // tile interface. These are defined in tile_extract.h
-    virtual void const *read_tile(unsigned flags, void *buffer, size_t b, int h, int w, int d) const override;
-    virtual void write_tile(unsigned flags, void const *buffer, size_t b, int h, int w, int d) override;
-    virtual unsigned tile_support_bits() const override;
+    API_EXPORT virtual void const *read_tile(unsigned flags, void *buffer, size_t b, int h, int w,
+                                             int d) const override;
+    API_EXPORT virtual void write_tile(unsigned flags, void const *buffer, size_t b, int h, int w, int d) override;
+    API_EXPORT virtual unsigned tile_support_bits() const override;
 
     // Return a reference to *this; useful to get the layout base class reference
     // for any tensor class which has one.
     // So if you call func(in.layout_base(), out.layout_base()), where 'func'
     // is a template func, it will be specialized according to the layout of
     // in and out, not the subclass.
-    inline LayoutTensor &layout_base() { return *this; }
-    inline LayoutTensor const &layout_base() const { return *this; }
+    API_EXPORT inline LayoutTensor &layout_base() { return *this; }
+    API_EXPORT inline LayoutTensor const &layout_base() const { return *this; }
 
     // checksum for debug
-    [[gnu::noinline]] virtual uint64_t get_checksum() const override
+    [[gnu::noinline]] API_EXPORT virtual uint64_t get_checksum() const override
     {
         // NOLINTNEXTLINE(misc-const-correctness): Don't const this variable
         uint64_t chk = 0;
@@ -2230,7 +2305,8 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
 
   protected:
     // element_addr is delegated to the particular specialization of layout_mem
-    virtual ALWAYSINLINE void *element_addr(size_t rank, const SIdx coords_in[]) const noexcept final override
+    API_EXPORT virtual ALWAYSINLINE void *element_addr(size_t rank,
+                                                       const SIdx coords_in[]) const noexcept final override
     {
         return mem.element_addr(shape, rank, coords_in);
     }
@@ -2238,7 +2314,7 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
 
     // This is called from ConcreteTensor::compare_sametype to fully compare two tensors
     // which are already known to be the same type (and have same interface)
-    [[gnu::noinline]] int compare_sametype_layout(LayoutTensor const *rhs) const
+    [[gnu::noinline]] API_EXPORT int compare_sametype_layout(LayoutTensor const *rhs) const
     {
         if (shape->dims != rhs->shape->dims) return (shape->dims < rhs->shape->dims) ? -1 : 1;
         if (is_padded) {
@@ -2249,7 +2325,7 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
         return mem.compare_memory(shape, rhs->mem);
     }
     // allocation and enumeration.
-    [[gnu::noinline]] void allocate_layout(hnnx::Allocator &allocator, unsigned options, MemoryClass mclass)
+    [[gnu::noinline]] API_EXPORT void allocate_layout(hnnx::Allocator &allocator, unsigned options, MemoryClass mclass)
     {
         // get the pointer to block table; and number of entries in it.
         void **const blocktab = this->mem.get_block_list_ptr();
@@ -2261,7 +2337,7 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
                              nblocks, // number of pointers
                              blocksize, align, mclass, options, this->get_dtype());
     }
-    [[gnu::noinline]] void enum_memory_blocks_layout(hnnx::MemBlockEnumerator &en, MemoryClass mclass) const
+    [[gnu::noinline]] API_EXPORT void enum_memory_blocks_layout(hnnx::MemBlockEnumerator &en, MemoryClass mclass) const
     {
         // get the pointer to block table; and number of entries in it.
         void **const blocktab = this->mem.get_block_list_ptr();
@@ -2270,17 +2346,17 @@ template <typename Linfo> class LayoutTensor : public RankedTensor<Linfo::Rank> 
     }
     // called from find_content_hash in the ConcreteTensor class. hash_in includes
     // hash of dtype and interface.
-    [[gnu::noinline]] uint32_t find_content_hash_layout(uint32_t hash_in, bool is_float) const noexcept
+    [[gnu::noinline]] API_EXPORT uint32_t find_content_hash_layout(uint32_t hash_in, bool is_float) const noexcept
     {
-        uint32_t h = hash_in ^ (Rank * 0x102401);
-        h = Tensor::build_hash(shape->dims.data(), Rank, hash_in);
+        uint32_t h = hash_in ^ (Linfo::Rank * 0x102401);
+        h = Tensor::build_hash(shape->dims.data(), Linfo::Rank, hash_in);
         if (is_padded) {
-            h = Tensor::build_hash(shape->max_dims.data(), Rank, h);
+            h = Tensor::build_hash(shape->max_dims.data(), Linfo::Rank, h);
             // TODO: including padding too (or instead)
         }
         return mem.find_content_hash(shape, h, is_float);
     }
-    static const char *code_to_type_name() { return TensorTypeStruct<LayoutTensor<Linfo>>::name; }
+    API_EXPORT static const char *code_to_type_name() { return TensorTypeStruct<LayoutTensor<Linfo>>::name; }
 };
 
 //
@@ -2301,8 +2377,8 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
     using Layout_t = typename Tinfo::Tlayout;
     using Pad_t = typename Tinfo::Pad_t;
     static constexpr DType dtype = dtype_of_type<Interface_t>();
-    static constexpr bool is_indirect = Tinfo::is_indirect;
-    static constexpr unsigned Rank = Layout_t::Rank;
+    API_EXPORT static constexpr bool is_indirect = Tinfo::is_indirect;
+    API_EXPORT static constexpr unsigned Rank = Layout_t::Rank;
     using BaseLayout = LayoutTensor<typename Tinfo::Lconfig>;
     using BaseRT = typename BaseLayout::BaseRT;
 
@@ -2313,12 +2389,12 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
                   "incompatible base class for ConcreteTensor");
 
   public:
-    const char *true_name() const override { return Tinfo::typetag; };
+    API_EXPORT const char *true_name() const override { return Tinfo::typetag; };
     using Accessor_t = typename Interface_t::Accessor;
     using Const_Accessor_t = typename Interface_t::AccessorRO;
     using element_type = typename Interface_t::element_type;
 
-    struct traits : public BaseLayout::traits {
+    struct API_EXPORT traits : public BaseLayout::traits {
         static constexpr DType dtype = ConcreteTensor::dtype;
         using element_type = typename dtype_traits<dtype>::element_type;
         using raw_type = element_type; // result from get_raw()
@@ -2329,11 +2405,11 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
     //  - build for given shape, attached to given producer.
     //  - pass the nase class ctor a specialized ctor, it uses to make the interface
     //   from the output def.
-    ConcreteTensor(const Op *producer_in, const OutputDef &def, Graph &graph_in)
+    API_EXPORT ConcreteTensor(const Op *producer_in, const OutputDef &def, Graph &graph_in)
         : BaseLayout(producer_in, def, graph_in, hnnx::make_interface<Interface_t>::from_odef)
     {
     }
-    ConcreteTensor(const Op *producer_in, const OutputDef &def, Graph &graph_in, element_type *data_in)
+    API_EXPORT ConcreteTensor(const Op *producer_in, const OutputDef &def, Graph &graph_in, element_type *data_in)
         : BaseLayout(producer_in, def, graph_in, hnnx::make_interface<Interface_t>::from_odef)
     {
         this->mem.set_raw_data_despite_danger((void *)data_in);
@@ -2341,47 +2417,50 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
     //   - deserialize. Note that dctx contains a graph ref.
     //   We pass the base class a pointer to specialized function, which it uses to
     //  deserialize the interface.
-    ConcreteTensor(const Op *producer_in, hnnx::Deserializer &dctx)
+    API_EXPORT ConcreteTensor(const Op *producer_in, hnnx::Deserializer &dctx)
         : BaseLayout(producer_in, dctx, &hnnx::make_interface<Interface_t>::from_deser)
     {
     }
     //    - 'clone duplicate' of the given tensor. Note that cmode is ignored.
-    ConcreteTensor(const ConcreteTensor &old, hnnx::Allocator *allocator, Tensor::clone_mode cmode)
+    API_EXPORT ConcreteTensor(const ConcreteTensor &old, hnnx::Allocator *allocator, Tensor::clone_mode cmode)
         : BaseLayout(old, allocator, cmode)
     {
     }
 
-    virtual DTypeScaleOff get_dtype_intfc() const noexcept override { return DTypeScaleOff(dtype, interface()); }
+    API_EXPORT virtual DTypeScaleOff get_dtype_intfc() const noexcept override
+    {
+        return DTypeScaleOff(dtype, interface());
+    }
 
     // note: pp 10.3/5 of c++: I can override 'virtual Interface const &interface() const'
     // with 'virtual X const & interface() const;' if X is based on Interface. When this method
     // is called with a baser reference, the result is just quietly converted to Interface &.
-    virtual Interface_t const &interface() const noexcept override final
+    API_EXPORT virtual Interface_t const &interface() const noexcept override final
     {
         return static_cast<Interface_t const &>(*this->interface_ptr);
     }
-    inline float interface_scale() const { return interface().get_scale(); }
-    inline float interface_scale_recip() const { return interface().get_scale_recip(); }
-    inline int32_t interface_offset() const { return interface().get_offset(); }
+    API_EXPORT inline float interface_scale() const { return interface().get_scale(); }
+    API_EXPORT inline float interface_scale_recip() const { return interface().get_scale_recip(); }
+    API_EXPORT inline int32_t interface_offset() const { return interface().get_offset(); }
 
-    inline ALWAYSINLINE const element_type *element_ptr(size_t rank, const SIdx coords[]) const
+    API_EXPORT inline ALWAYSINLINE const element_type *element_ptr(size_t rank, const SIdx coords[]) const
     {
         return (element_type const *)this->element_addr(rank, coords);
     }
-    inline ALWAYSINLINE element_type *element_ptr(size_t rank, const SIdx coords[])
+    API_EXPORT inline ALWAYSINLINE element_type *element_ptr(size_t rank, const SIdx coords[])
     {
         return (element_type *)this->element_addr(rank, coords);
     }
 
     // Some methods return the same thing as in LayoutTensor, but
     // with the type being element_type instead of storage_type.
-    inline std::conditional_t<is_indirect, void, element_type *&> data_ptr()
+    API_EXPORT inline std::conditional_t<is_indirect, void, element_type *&> data_ptr()
     {
         if constexpr (!is_indirect) {
             return (element_type *&)this->mem.bulk_data;
         }
     }
-    inline std::conditional_t<is_indirect, void, element_type *const &> data_ptr() const
+    API_EXPORT inline std::conditional_t<is_indirect, void, element_type *const &> data_ptr() const
     {
         if constexpr (!is_indirect) {
             return (element_type *const &)this->mem.bulk_data;
@@ -2389,87 +2468,89 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
     }
 
     // block table access
-    inline element_type **blocktab_ptr() const { return (element_type **)this->mem.get_block_list_ptr(); }
-    inline element_type *&blocktab_at(size_t i) { return (element_type *&)BaseLayout::blocktab_at(i); }
-    inline element_type *const &blocktab_at(size_t i) const
+    API_EXPORT inline element_type **blocktab_ptr() const { return (element_type **)this->mem.get_block_list_ptr(); }
+    API_EXPORT inline element_type *&blocktab_at(size_t i) { return (element_type *&)BaseLayout::blocktab_at(i); }
+    API_EXPORT inline element_type *const &blocktab_at(size_t i) const
     {
         return (element_type *const &)BaseLayout::blocktab_at(i);
     }
 
-    template <typename... ind_types> inline element_type const *const *block_ptr_address(ind_types... inds) const
+    template <typename... ind_types>
+    API_EXPORT inline element_type const *const *block_ptr_address(ind_types... inds) const
     {
         return (element_type const *const *)BaseLayout::block_ptr_address(inds...);
     };
-    template <typename... ind_types> inline element_type *const *block_ptr_address(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline element_type *const *block_ptr_address(ind_types... inds)
     {
         return (element_type *const *)BaseLayout::block_ptr_address(inds...);
     };
-    template <typename... ind_types> inline element_type const *block_ptr(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline element_type const *block_ptr(ind_types... inds) const
     {
-        return *block_ptr_address(inds...);
+        return *this->block_ptr_address(inds...);
     }
-    template <typename... ind_types> inline element_type *block_ptr(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline element_type *block_ptr(ind_types... inds)
     {
-        return *block_ptr_address(inds...);
+        return *this->block_ptr_address(inds...);
     }
 
     // direct access methods.
     //
-    template <typename... ind_types> inline Const_Accessor_t operator()(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline Const_Accessor_t operator()(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {static_cast<SIdx>(inds)...};
-        return Const_Accessor_t(this->element_addr(Rank, coords.data()), interface());
+        return Const_Accessor_t(this->element_addr(Rank, coords.data()), this->interface());
     }
-    template <typename... ind_types> inline Accessor_t operator()(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline Accessor_t operator()(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
-        return Accessor_t(this->element_addr(Rank, coords.data()), interface());
+        return Accessor_t(this->element_addr(Rank, coords.data()), this->interface());
     }
-    template <typename... ind_types> inline element_type const &get_raw(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline element_type const &get_raw(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return *(element_type const *)this->element_addr(Rank, coords.data());
     }
-    template <typename... ind_types> inline element_type &get_raw(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline element_type &get_raw(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return *(element_type *)this->element_addr(Rank, coords.data());
     }
-    template <typename... ind_types> inline element_type const *get_raw_addr(ind_types... inds) const
+    template <typename... ind_types> API_EXPORT inline element_type const *get_raw_addr(ind_types... inds) const
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return (element_type const *)this->element_addr(Rank, coords.data());
     }
-    template <typename... ind_types> inline element_type *get_raw_addr(ind_types... inds)
+    template <typename... ind_types> API_EXPORT inline element_type *get_raw_addr(ind_types... inds)
     {
         static_assert(Rank == (sizeof...(ind_types)), "# of coords must match Rank");
         const std::array<SIdx, Rank> coords = {{static_cast<SIdx>(inds)...}};
         return (element_type *)this->element_addr(Rank, coords.data());
     }
-    virtual uint32_t get_tensor_format_code() const noexcept override
+    API_EXPORT virtual uint32_t get_tensor_format_code() const noexcept override
     {
         return Tensor::formatcode_for_general<traits>();
     }
-    virtual uint32_t get_tensor_info() const noexcept override
+
+    API_EXPORT virtual uint32_t get_tensor_info() const noexcept override
     {
         return Tensor::pack_tensor_info(traits::dtype, Rank, traits::memclass);
     }
     // allocation and enumeration.
-    virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) override final
+    API_EXPORT virtual void allocate_func(hnnx::Allocator &allocator, unsigned options) override final
     {
         this->allocate_layout(allocator, options, traits::memclass);
     }
-    virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &en) const override
+    API_EXPORT virtual void enum_memory_blocks(hnnx::MemBlockEnumerator &en) const override
     {
         this->enum_memory_blocks_layout(en, traits::memclass);
     }
     // hash the dtype and interface, and let find_content_hash_layout do the rest.
-    virtual uint32_t find_content_hash() const noexcept override final
+    API_EXPORT virtual uint32_t find_content_hash() const noexcept override final
     {
         uint32_t const h = interface().interface_hash() ^ mulu32_modular(unsigned(dtype), 0x107301);
         static constexpr bool is_float = dtype_traits<dtype>::is_float;
@@ -2477,7 +2558,7 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
     }
 
   protected:
-    virtual int compare_sametype(const Tensor *rhs_in) const override
+    API_EXPORT virtual int compare_sametype(const Tensor *rhs_in) const override
     {
         // compare the interface, and then all the rest is done in compare_sametype_layout.
         auto *rhs = static_cast<const ConcreteTensor *>(rhs_in);
@@ -2486,8 +2567,8 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
         return this->compare_sametype_layout(rhs);
     }
 
-    virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
-                              Tensor::tensor_blockinfo *infop) const override
+    API_EXPORT virtual void **clone_util(hnnx::Allocator *allocator, std::unique_ptr<Tensor> *tensp,
+                                         Tensor::tensor_blockinfo *infop) const override
     {
         void **retval = nullptr;
         ConcreteTensor const *newtens = nullptr;
@@ -2501,16 +2582,16 @@ template <typename Tinfo> class ConcreteTensor : public LayoutTensor<typename Ti
             infop->blkptrs = (void **)this->mem.get_block_list_ptr();
             // pretend that a pointer to Shape<Rank> is really a pointer to its base class ShapeFlags
             // we provide a pointer to the shape field in the cloned tensor, if applicable; otherwise in 'this'.
-            infop->shapepp = (hnnx::ShapeFlags *const *)&(newtens ? newtens : this)->shape;
+            infop->shapepp = (const hnnx::ShapeFlags *const *)&(newtens ? newtens : this)->shape;
             infop->nblocks = this->mem.get_block_list_len(this->shape);
             infop->blocksize = sizeof(element_type) * this->mem.get_elements_per_block(this->shape);
-            infop->is_indirect = is_indirect;
+            infop->is_indirect = this->is_indirect;
             infop->is_chunked = traits::is_chunked;
             return retval;
         }
         return nullptr;
     }
-    static const char *code_to_type_name() { return TensorTypeStruct<ConcreteTensor<Tinfo>>::name; }
+    API_EXPORT static const char *code_to_type_name() { return TensorTypeStruct<ConcreteTensor<Tinfo>>::name; }
 };
 
 template <typename T> class TensorIter;
@@ -2538,7 +2619,7 @@ template <typename T> class IterableTensor {
     friend iterator; //class TensorIter<T> ;
     friend const_iterator;
 
-    inline IterableTensor(reference t, std::array<size_t, 4> inc)
+    API_EXPORT inline IterableTensor(reference t, std::array<size_t, 4> inc)
         : myTensor(&t), myCTensor(const_cast<const_pointer>(&t)), increments(inc), is_const(false)
     {
         assert(myCTensor && myCTensor->rank() == 4);
@@ -2547,7 +2628,7 @@ template <typename T> class IterableTensor {
         }
     }
 
-    inline IterableTensor(const_reference t, std::array<size_t, 4> inc)
+    API_EXPORT inline IterableTensor(const_reference t, std::array<size_t, 4> inc)
         : myTensor(nullptr), myCTensor(&t), increments(inc), is_const(true)
     {
         assert(myCTensor && myCTensor->rank() == 4);
@@ -2556,76 +2637,76 @@ template <typename T> class IterableTensor {
         }
     }
 
-    inline const size_t dim(size_t index) const { return dims[index]; }
+    API_EXPORT inline const size_t dim(size_t index) const { return dims[index]; }
 
-    inline auto access(size_t b, size_t h, size_t w, size_t d) &
+    API_EXPORT inline auto access(size_t b, size_t h, size_t w, size_t d) &
     {
         assert(!is_const && myTensor);
         return (*myTensor)(b, h, w, d);
     }
-    inline auto access(size_t b, size_t h, size_t w, size_t d) &&
+    API_EXPORT inline auto access(size_t b, size_t h, size_t w, size_t d) &&
     {
         assert(myCTensor);
         return (*myCTensor)(b, h, w, d);
     }
-    inline auto access(size_t b, size_t h, size_t w, size_t d) const &&
-    {
-        assert(myCTensor);
-        return (*myCTensor)(b, h, w, d);
-    }
-
-    inline auto read(size_t b, size_t h, size_t w, size_t d) const
+    API_EXPORT inline auto access(size_t b, size_t h, size_t w, size_t d) const &&
     {
         assert(myCTensor);
         return (*myCTensor)(b, h, w, d);
     }
 
-    inline auto operator()(size_t b, size_t h, size_t w, size_t d) { return access(b, h, w, d); }
-    inline const auto operator()(size_t b, size_t h, size_t w, size_t d) const
+    API_EXPORT inline auto read(size_t b, size_t h, size_t w, size_t d) const
     {
         assert(myCTensor);
         return (*myCTensor)(b, h, w, d);
     }
 
-    inline bool operator==(const IterableTensor<T> &it) const
+    API_EXPORT inline auto operator()(size_t b, size_t h, size_t w, size_t d) { return access(b, h, w, d); }
+    API_EXPORT inline const auto operator()(size_t b, size_t h, size_t w, size_t d) const
+    {
+        assert(myCTensor);
+        return (*myCTensor)(b, h, w, d);
+    }
+
+    API_EXPORT inline bool operator==(const IterableTensor<T> &it) const
     {
         return (this->myCTensor == it.myCTensor) && (this->increments == it.increments);
     }
-    inline bool operator!=(const IterableTensor<T> &it) const { return !(*this == it); }
+    API_EXPORT inline bool operator!=(const IterableTensor<T> &it) const { return !(*this == it); }
 
-    inline iterator begin()
+    API_EXPORT inline iterator begin()
     {
         std::array<size_t, 4> const start = {0, 0, 0, 0};
         return iterator(*this, start);
     }
-    inline const_iterator begin() const
+    API_EXPORT inline const_iterator begin() const
     {
         std::array<size_t, 4> start = {0, 0, 0, 0};
         return const_iterator(*this, start);
     }
-    inline iterator begin(std::array<size_t, 4> start) { return iterator(*this, start); }
-    inline const_iterator begin(std::array<size_t, 4> start) const { return const_iterator(*this, start); }
-    inline iterator end()
+    API_EXPORT inline iterator begin(std::array<size_t, 4> start) { return iterator(*this, start); }
+    API_EXPORT inline const_iterator begin(std::array<size_t, 4> start) const { return const_iterator(*this, start); }
+    API_EXPORT inline iterator end()
     {
         std::array<size_t, 4> const end = {dims[0], 0, 0, 0};
         return iterator(*this, end);
     }
-    inline const_iterator end() const
+    API_EXPORT inline const_iterator end() const
     {
         std::array<size_t, 4> end = {dims[0], 0, 0, 0};
         return const_iterator(*this, end);
     }
-    inline iterator end(std::array<size_t, 4> end) { return iterator(*this, end); }
-    inline const_iterator end(std::array<size_t, 4> end) const { return const_iterator(*this, end); }
+    API_EXPORT inline iterator end(std::array<size_t, 4> end) { return iterator(*this, end); }
+    API_EXPORT inline const_iterator end(std::array<size_t, 4> end) const { return const_iterator(*this, end); }
 
-    ~IterableTensor() {}
+    API_EXPORT ~IterableTensor() {}
 };
 
 template <typename T> class TensorIter {
   private:
     IterableTensor<T> &myITensor;
     std::array<size_t, 4> location;
-    bool increment(size_t dim)
+    API_EXPORT bool increment(size_t dim)
     {
         size_t const inc = myITensor.increments[dim];
         if (inc) {
@@ -2645,7 +2726,7 @@ template <typename T> class TensorIter {
         return false;
     }
 
-    inline void incrementLocation()
+    API_EXPORT inline void incrementLocation()
     {
         int i = location.size();
         while (!increment(--i))
@@ -2653,16 +2734,19 @@ template <typename T> class TensorIter {
     }
 
   protected:
-    inline TensorIter(const TensorIter<T> &to_copy) : myITensor(to_copy.myITensor), location(to_copy.location) {}
+    API_EXPORT inline TensorIter(const TensorIter<T> &to_copy)
+        : myITensor(to_copy.myITensor), location(to_copy.location)
+    {
+    }
 
   public:
-    inline TensorIter(IterableTensor<T> &it, std::array<size_t, 4> loc) : myITensor(it), location(loc) {}
+    API_EXPORT inline TensorIter(IterableTensor<T> &it, std::array<size_t, 4> loc) : myITensor(it), location(loc) {}
 
-    inline TensorIter<T> &clone() { return TensorIter<T>(*this); }
+    API_EXPORT inline TensorIter<T> &clone() { return TensorIter<T>(*this); }
 
-    inline std::array<size_t, 4> get_location() { return location; }
+    API_EXPORT inline std::array<size_t, 4> get_location() { return location; }
 
-    inline bool operator==(const TensorIter<T> &ti) const
+    API_EXPORT inline bool operator==(const TensorIter<T> &ti) const
     {
         if (this->myITensor == ti.myITensor) {
             for (int i = 0; i < this->location.size(); i++) {
@@ -2674,21 +2758,21 @@ template <typename T> class TensorIter {
         }
         return false;
     }
-    inline bool operator!=(const TensorIter<T> &ti) const { return !(*this == ti); }
-    inline operator float() const { return myITensor(location[0], location[1], location[2], location[3]); }
-    inline TensorIter<T> &operator=(const float v)
+    API_EXPORT inline bool operator!=(const TensorIter<T> &ti) const { return !(*this == ti); }
+    API_EXPORT inline operator float() const { return myITensor(location[0], location[1], location[2], location[3]); }
+    API_EXPORT inline TensorIter<T> &operator=(const float v)
     {
         myITensor(location[0], location[1], location[2], location[3]) = v;
         return *this;
     }
     //inline TensorIter<T>&operator=(const TensorIter<T>& v) { return this->operator=(float(v)); }
     //inline auto & operator*() {return myITensor(location[0],location[1],location[2],location[3]);}
-    inline TensorIter<T> &operator++()
+    API_EXPORT inline TensorIter<T> &operator++()
     {
         incrementLocation();
         return *this;
     }
-    inline TensorIter<T> operator++(int)
+    API_EXPORT inline TensorIter<T> operator++(int)
     {
         TensorIter<T> const clone = TensorIter<T>(*this);
         incrementLocation();
@@ -2702,7 +2786,7 @@ template <typename T> class TensorCIter {
   private:
     const IterableTensor<T> &myITensor;
     std::array<size_t, 4> location;
-    bool increment(size_t dim)
+    API_EXPORT bool increment(size_t dim)
     {
         const size_t inc = myITensor.increments[dim];
         if (inc) {
@@ -2722,7 +2806,7 @@ template <typename T> class TensorCIter {
         return false;
     }
 
-    inline void incrementLocation()
+    API_EXPORT inline void incrementLocation()
     {
         int i = location.size();
         while (!increment(--i))
@@ -2730,11 +2814,13 @@ template <typename T> class TensorCIter {
     }
 
   public:
-    inline TensorCIter(const IterableTensor<T> &it, std::array<size_t, 4> loc) : myITensor(it), location(loc) {}
+    API_EXPORT inline TensorCIter(const IterableTensor<T> &it, std::array<size_t, 4> loc) : myITensor(it), location(loc)
+    {
+    }
 
-    inline std::array<size_t, 4> get_location() { return location; }
+    API_EXPORT inline std::array<size_t, 4> get_location() { return location; }
 
-    inline bool operator==(const TensorCIter<T> &ti) const
+    API_EXPORT inline bool operator==(const TensorCIter<T> &ti) const
     {
         if (this->myITensor == ti.myITensor) {
             for (int i = 0; i < this->location.size(); i++) {
@@ -2746,14 +2832,17 @@ template <typename T> class TensorCIter {
         }
         return false;
     }
-    inline bool operator!=(const TensorCIter<T> &ti) const { return !(*this == ti); }
-    inline operator float() const { return myITensor.read(location[0], location[1], location[2], location[3]); }
-    inline TensorCIter<T> &operator++()
+    API_EXPORT inline bool operator!=(const TensorCIter<T> &ti) const { return !(*this == ti); }
+    API_EXPORT inline operator float() const
+    {
+        return myITensor.read(location[0], location[1], location[2], location[3]);
+    }
+    API_EXPORT inline TensorCIter<T> &operator++()
     {
         incrementLocation();
         return *this;
     }
-    inline TensorCIter<T> operator++(int)
+    API_EXPORT inline TensorCIter<T> operator++(int)
     {
         TensorCIter<T> clone(*this);
         incrementLocation();
@@ -2789,7 +2878,7 @@ template <> struct stype_for<4> {
 //
 #define LAYOUTDEF(NAME, ELBYTES, LAYOUT, PAD)                                                                          \
     namespace Ldefs {                                                                                                  \
-    struct NAME {                                                                                                      \
+    struct API_EXPORT NAME {                                                                                           \
         using Tlayout = LAYOUT;                                                                                        \
         using storage_type = stype_for<ELBYTES>::type;                                                                 \
         static constexpr unsigned Rank = Tlayout::Rank;                                                                \
@@ -2801,7 +2890,7 @@ template <> struct stype_for<4> {
 // define a layout config which has chunked addressing, but contiguous alloc.
 #define LAYOUTDEF_CONTIG(NAME, ELBYTES, LAYOUT, PAD)                                                                   \
     namespace Ldefs {                                                                                                  \
-    struct NAME {                                                                                                      \
+    struct API_EXPORT NAME {                                                                                           \
         using Tlayout = LAYOUT;                                                                                        \
         using storage_type = stype_for<ELBYTES>::type;                                                                 \
         static constexpr unsigned Rank = Tlayout::Rank;                                                                \
@@ -2827,13 +2916,13 @@ template <> struct stype_for<4> {
 //    static member function creates the map entry in .rodata.
 //  - If not explicity specialised, need to call DECLARE_TENSOR_CODE_TO_TYPENAME_STRING macro in
 //    order to place entry in .rodata
-template <typename T> constexpr const char *code_to_type_name()
+template <typename T> API_FUNC_EXPORT constexpr const char *code_to_type_name()
 {
     return "unknown";
 }
 
 #define DECLARE_TENSOR_CODE_TO_TYPENAME_STRING(TYPE)                                                                   \
-    template <> const char *code_to_type_name<TYPE>() { return TensorTypeStruct<TYPE>::name; }
+    template <> API_FUNC_EXPORT const char *code_to_type_name<TYPE>() { return TensorTypeStruct<TYPE>::name; }
 
 // macro to define a ConcreteTensor config in Tdefs namespace
 //  LAYOUTNAME is a layout defined by LAYOUTDEF macro
@@ -2849,7 +2938,7 @@ template <typename T> constexpr const char *code_to_type_name()
 //
 #define TENSORDEF_MC(NAME, LAYOUTNAME, DTYPE, MCLASS, ENCODENAME)                                                      \
     namespace Tdefs {                                                                                                  \
-    struct NAME {                                                                                                      \
+    struct API_EXPORT NAME {                                                                                           \
         using Lconfig = Ldefs::LAYOUTNAME;                                                                             \
         using Tlayout = Lconfig::Tlayout;                                                                              \
         using storage_type = Lconfig::storage_type;                                                                    \
@@ -3212,12 +3301,12 @@ using CoreTensors =
                    QUint8WideCroutonTensor, QUint8WideCroutonTensor_TCM, QUint8Crouton2x2Tensor_TCM,
                    QUint8WideCrouton2x2Tensor_TCM, PlainFloat16Tensor_TCM, PlainFloat16Tensor5D, Int32Tensor5D_TCM>;
 
-const char *get_op_true_name(const Op *op);
+API_EXPORT const char *get_op_true_name(const Op *op);
 
 ////// Tensor Generator //////////////
 
 template <typename T, typename TX>
-inline std::unique_ptr<T> make_tensor_template(Op const *op, OutputDef const &odef, Graph &g)
+API_EXPORT inline std::unique_ptr<T> make_tensor_template(Op const *op, OutputDef const &odef, Graph &g)
 {
     return std::unique_ptr<T>(std::make_unique<TX>(op, odef, g));
 }
@@ -3253,7 +3342,7 @@ inline constexpr std::array<tensor_generator_table_entry, std::tuple_size_v<TTUP
     return {tensor_generator_table_entry(static_cast<typename std::tuple_element_t<I, TTUPLE> *>(nullptr))...};
 }
 
-template <typename TensorType> struct tensor_generator_lookup {
+template <typename TensorType> struct API_EXPORT tensor_generator_lookup {
     template <typename TX>
     using has_TensorType_as_base = std::integral_constant<bool, std::is_base_of<TensorType, TX>::value>;
     // this is a tuple of types for which T is a common base.
@@ -3313,8 +3402,8 @@ template <typename TensorType> struct tensor_generator_lookup {
 // A call to tensor_generator<T>(..) is really a call to tensor_generator_lookup<T>::make(..)
 //
 
-bool tensor_tall_crouton_disabled(Graph const &g);
-bool tensor_wide_crouton_disabled(Graph const &g);
+API_EXPORT bool tensor_tall_crouton_disabled(Graph const &g);
+API_EXPORT bool tensor_wide_crouton_disabled(Graph const &g);
 
 template <typename T, typename = void> struct is_wide_crouton {
     static constexpr bool value = false;
@@ -3335,7 +3424,7 @@ template <typename TensorType>
 constexpr std::unique_ptr<Tensor> (*tensor_generator)(const Op *producer_in, const OutputDef &def,
                                                       Graph &graph_in) = tensor_generator_lookup<TensorType>::make;
 template <typename TensorType>
-inline bool tensor_generator_valid(const Op *producer_in, const OutputDef &def, Graph &graph_in)
+API_FUNC_EXPORT inline bool tensor_generator_valid(const Op *producer_in, const OutputDef &def, Graph &graph_in)
 {
     if constexpr (is_wide_crouton<TensorType>::value) {
         if (tensor_wide_crouton_disabled(graph_in)) {
@@ -3354,8 +3443,8 @@ inline bool tensor_generator_valid(const Op *producer_in, const OutputDef &def, 
 
 // make a scalar tensor for a given def (with 0 rank, and specific dtype). Returns an empty
 // pointer if there is no support.
-std::unique_ptr<Tensor> tensor_generator_scalar(const Op *producer_in, const OutputDef &def, void const *data,
-                                                size_t len);
+API_FUNC_EXPORT std::unique_ptr<Tensor> tensor_generator_scalar(const Op *producer_in, const OutputDef &def,
+                                                                void const *data, size_t len);
 
 template <int relative_tolerance = 1 /* 1% */, int absolute_tolerance = 1 /* in 'FLT_EPSILON' ref <climits> */>
 static inline constexpr int almost_eq(float rhs, float lhs)
@@ -3375,9 +3464,9 @@ extern GraphStatus check_dims(const Tensor &lhs, const Tensor &rhs);
 // Set the shape of Tensor D to the same as Tensor S, and
 // then copy the contents, adapting to whatever shapes and data format
 //
-void tensor_copy_4d(Tensor &dst, Tensor const &src);
+API_FUNC_EXPORT void tensor_copy_4d(Tensor &dst, Tensor const &src);
 
-void tensor_registry_testing();
+API_FUNC_EXPORT void tensor_registry_testing();
 
 template <typename T> struct memclass_of {
     static constexpr MemoryClass memclass = tensor_traits<T>::memclass;

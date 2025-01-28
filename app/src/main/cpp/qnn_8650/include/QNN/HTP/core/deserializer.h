@@ -32,6 +32,8 @@
 #include "forward_classes.h"
 #include "deserialize_tensors.h"
 #include "macros_attribute.h"
+#include "const_extent_descriptor.h"
+#include "weak_linkage.h"
 
 namespace hnnx {
 class DMA_Manager;
@@ -92,6 +94,10 @@ struct trick_stringview_lt {
 
 using op_deserializer_map_t = std::map<std::string_view, std::pair<op_deserializer_fn, bool>, trick_stringview_lt>;
 using tensor_deserializer_map_t = std::map<std::string_view, tensor_deserializer_fn, trick_stringview_lt>;
+using cexdesc_deserializer_map = std::map<std::string, ConstExtentDesc>;
+
+using const_extent_t = std::pair<unsigned char *, size_t>;
+using weight_buf_deserializer_map = std::map<std::string, const_extent_t>;
 
 /**
  * @brief Deserializer class to reverse the serialization
@@ -120,6 +126,10 @@ class Deserializer : public DeSerError {
 
     std::vector<op_deserializer_map_t::const_iterator> op_deserialize_fn_list;
     std::vector<tensor_deserializer_fn> tensor_deserialize_fn_list;
+
+    // OPTIONAL maps from weight buffer names to the descriptors and the buffers, respectively
+    cexdesc_deserializer_map named_cexdescs;
+    weight_buf_deserializer_map named_weight_bufs;
 
     // used to 'link' shared blocktables during deser.
     std::vector<void *const *> blocktable_link_table;
@@ -166,8 +176,11 @@ class Deserializer : public DeSerError {
     constexpr bool is_aligned_const_format() const { return aligned_const_format_flag; }
     void set_aligned_const_format(const bool v = true) { aligned_const_format_flag = v; }
 
+    PUSH_WARNING()
+    DISABLE_WARNING("-Wcast-qual", MSVC_NO_EQUIV)
     // valid when the entire pickle, in const_extent format, is loaded as a single, persistent dma buffer
     inline unsigned char *get_weight_pointer() { return ((unsigned char *)bufstart) + (4 * pickle_len_words); };
+    POP_WARNING()
     inline size_t get_weight_size() { return (bufend - bufstart) - (4 * pickle_len_words); };
 
   protected:
@@ -259,12 +272,19 @@ class Deserializer : public DeSerError {
     // This is called when a 'class index' Aux Data is encountered.
     // It must deserialize exactly the indicated number of payload words.
     // is_tensor = false for "Co" (op class index), and true for "Ct" (tensor class index)
-    void auxdata_class_index(unsigned payload_words, bool is_tensor);
+    API_EXPORT void auxdata_class_index(unsigned payload_words, bool is_tensor);
     //
     // called when an 'Nt' Aux data is encountered, which provides some array sizes for the
     // deserialization.
     // It must deserialize exactly the indicated number of payload words.
-    void auxdata_temparr_sizes(unsigned payload_words);
+    API_EXPORT void auxdata_temparr_sizes(unsigned payload_words);
+    //
+    // called when a 'KS' Aux data is encountered, which provides a const_extent_descriptor
+    // It must deserialize exactly the indicated number of payload words.
+    API_EXPORT int auxdata_read_const_extent_descriptor(const unsigned payload_words);
+    // helper for above. payload_words is the length WITH PADDING
+    API_EXPORT int extract_const_extent_name(const unsigned payload_words, std::string &retVal);
+
     /**
 	 * @brief deserialize data of type which calls simple_deserialize
 	 *
@@ -272,7 +292,7 @@ class Deserializer : public DeSerError {
 	 *
 	 * Note: the below are the only types supported for deserialize_type<T>
 	 */
-    uint64_t deserialize_uint64(); // inline later
+    API_EXPORT uint64_t deserialize_uint64(); // inline later
     inline float deserialize_float() { return simple_deserialize<float>(); }
     inline uint32_t deserialize_uint32() { return simple_deserialize<uint32_t>(); }
     inline NN_INT32_T deserialize_int32() { return simple_deserialize<NN_INT32_T>(); }
@@ -294,8 +314,8 @@ class Deserializer : public DeSerError {
     void set_op_flags(uint32_t f) { op_flags = f; };
 
     const OpExtraInfo &get_op_extra_info() const { return op_extra_info; };
-    OpExtraInfo &get_op_extra_info() { return op_extra_info; };
     void clear_extra_info() { op_extra_info.clear(); };
+    void set_op_extra_info(OpExtraInfo in_op_extra_info) { op_extra_info = in_op_extra_info; };
 
     /**
 	 * @brief deserialize buffer for specified size
@@ -368,11 +388,25 @@ class Deserializer : public DeSerError {
     // and to do basic check.
     API_EXPORT std::vector<uint32_t> extract_const_extent_table(size_t posn_in_words);
     std::vector<uint32_t> extract_const_extent_table(const unsigned char *const weight_data, const size_t weight_size);
+    // given a destination char pointer, prefilled with \null, fills it in with the name of the const_extent
+    // caller must provide destination of sufficient length
+    std::string name_from_weight_data(const unsigned char *const weight_data, const size_t weight_length);
+    // helper func for above. return -1 if name not present.
+    size_t locate_name_offset(const unsigned char *const weight_data, const size_t weight_length);
+    // give a vector of weight_data buffers, stores them all in the appropriate map
+    void store_named_weight_bufs(unsigned char *const *const buffers, const size_t *const lengths,
+                                 const unsigned num_buffers);
     //
     // copy 'len' bytes of data at offset offs_bytes in the pickle into location dstp.
     // returns true if it's possible. You can maybe pass a DMA_Manager to have it queued...
     // offs_bytes defined as uint64_t to support possible 'far' data on hexagon.
     API_EXPORT bool extract_const_extent_data(uint64_t offs_bytes, size_t len, void *dstp, DMA_Manager *dma = nullptr);
+    // same, using an external const_extent
+    bool extract_const_extent_data(uint64_t offs_bytes, size_t len, void *dstp, const unsigned char *const weight_data,
+                                   const size_t weight_length);
+
+    // Increment tue current read position of internal buffer without reading anything
+    void deserialize_skip_words(size_t nwords);
 
     // this is used to pass the offset of the const-extent-descriptor (recorded as pickle_len)
     // to the alloc->deserialize.
@@ -465,8 +499,8 @@ PUSH_VISIBILITY(default)
  * @param[in] tinf Op type_info that is used to key the map
  * @param[in] fn Deserialize function
  */
-void deserialize_op_register(std::type_info const *tinf, const std::string_view type_tag, const op_deserializer_fn &fn,
-                             bool is_external = false);
+API_EXPORT void deserialize_op_register(std::type_info const *tinf, const std::string_view type_tag,
+                                        const op_deserializer_fn &fn, bool is_external = false);
 /**
  * @brief register the deserialization function for each \ref Tensor
  * Since \ref Tensor derived classes are instantiated via templates, there
@@ -475,7 +509,8 @@ void deserialize_op_register(std::type_info const *tinf, const std::string_view 
  * @param[in] type_tag Tensor type tag that is used to key the map
  * @param[in] fn Deserialize function
  */
-void deserialize_tensor_register(std::type_info const &tinf, const char *type_tag, tensor_deserializer_fn fn);
+API_FUNC_EXPORT void deserialize_tensor_register(std::type_info const &tinf, const char *type_tag,
+                                                 tensor_deserializer_fn fn);
 
 POP_VISIBILITY()
 
@@ -498,7 +533,7 @@ template <template <typename> typename Pred, typename...> struct TupFilter;
 PUSH_VISIBILITY(default)
 
 // 'slow path' for deserialize_op_idx, used when the value is not aready in the table.
-uint32_t deserialize_op_idx_slow(Deserializer &dctx, uint32_t op_idx);
+API_EXPORT uint32_t deserialize_op_idx_slow(Deserializer &dctx, uint32_t op_idx);
 
 /**
  * @brief deserialize a \ref Tensor. The implementation makes use of the map
@@ -509,7 +544,7 @@ uint32_t deserialize_op_idx_slow(Deserializer &dctx, uint32_t op_idx);
  * @param[in] graph_in \ref Graph context where this Tensor lives.
  * @return uptr_Tensor unique_ptr of \ref Tensor type
  */
-uptr_Tensor deserialize_tensor(const Op *producer, Deserializer &dctx);
+API_EXPORT uptr_Tensor deserialize_tensor(const Op *producer, Deserializer &dctx);
 
 POP_VISIBILITY()
 

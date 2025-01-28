@@ -28,18 +28,22 @@ class SimpleOpBase {
 
   public:
     SimpleOpBase() {}
+    SimpleOpBase(const SimpleOpBase &) = delete;
+    SimpleOpBase &operator=(const SimpleOpBase &) = delete;
+    SimpleOpBase(SimpleOpBase &&) = delete;
+    SimpleOpBase &operator=(SimpleOpBase &&) = delete;
     API_EXPORT virtual ~SimpleOpBase();
-    virtual std::type_info const *true_type() const { return &typeid(*this); }
-    virtual size_t get_n_inputs() const = 0;
-    virtual size_t get_n_outputs() const = 0;
-    virtual uint8_t const *get_input_tensor_types() const = 0;
-    virtual uint8_t const *get_output_tensor_types() const = 0;
-    virtual bool needs_tcm() const = 0;
-    virtual GraphStatus execute(Tensor const *const *inputs_p, unsigned n_in, uptr_Tensor const *outputs_p,
-                                unsigned n_out) const noexcept = 0;
+    API_EXPORT virtual std::type_info const *true_type() const { return &typeid(*this); }
+    API_EXPORT virtual size_t get_n_inputs() const = 0;
+    API_EXPORT virtual size_t get_n_outputs() const = 0;
+    API_EXPORT virtual uint8_t const *get_input_tensor_types() const = 0;
+    API_EXPORT virtual uint8_t const *get_output_tensor_types() const = 0;
+    API_EXPORT virtual bool needs_tcm() const = 0;
+    API_EXPORT virtual GraphStatus execute(Tensor const *const *inputs_p, unsigned n_in, uptr_Tensor const *outputs_p,
+                                           unsigned n_out) const noexcept = 0;
     API_EXPORT static void release_chain(std::unique_ptr<SimpleOpBase> &listhead) noexcept;
 
-    inline void set_next(std::unique_ptr<SimpleOpBase> &&nextp) { next_sop = std::move(nextp); }
+    API_EXPORT inline void set_next(std::unique_ptr<SimpleOpBase> &&nextp) { next_sop = std::move(nextp); }
 };
 
 POP_VISIBILITY()
@@ -81,6 +85,10 @@ template <auto F> class SimpleOp : public SimpleOpBase {
     static constexpr size_t n_graphs = std::tuple_size<std::decay_t<graph_ptr_tuple_type>>::value;
 
     SimpleOp() : SimpleOpBase() {}
+    SimpleOp(const SimpleOp &) = delete;
+    SimpleOp &operator=(const SimpleOp &) = delete;
+    SimpleOp(SimpleOp &&) = delete;
+    SimpleOp &operator=(SimpleOp &&) = delete;
 
     ~SimpleOp() override = default;
 

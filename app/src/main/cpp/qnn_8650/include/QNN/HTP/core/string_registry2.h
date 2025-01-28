@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// Copyright (c) 2018 Qualcomm Technologies, Inc.
+// Copyright (c) 2018, 2023 Qualcomm Technologies, Inc.
 // All Rights Reserved.
 // Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -15,7 +15,7 @@
 #include <list>
 #include <vector>
 #include <stdexcept>
-#include <string.h>
+#include <cstring>
 #include "weak_linkage.h"
 
 //
@@ -40,7 +40,7 @@ PUSH_VISIBILITY(default)
 namespace hnnx {
 
 template <int K = 0x13121> struct polynomial_string_hash {
-    unsigned operator()(char const *s, size_t n) const
+    API_EXPORT unsigned operator()(char const *s, size_t n) const
     {
         unsigned h = 0;
         for (int i = 0; i < (int)n; i++) {
@@ -85,9 +85,9 @@ template <class HASHFUNC> class string_registry_two {
     size_t m_bulk_pos;
     std::map<std::string_view, hashval_t> m_fwd_map;
 
-    unsigned get_hash(std::string_view s) { return hasher(s.data(), s.size()); }
+    API_EXPORT unsigned get_hash(std::string_view s) { return hasher(s.data(), s.size()); }
 
-    char *need_bulk(size_t n)
+    API_EXPORT char *need_bulk(size_t n)
     {
         if (n > BULKN) throw std::length_error("string too long");
         if (m_bulk_current == nullptr || m_bulk_pos + n > BULKN) {
@@ -103,40 +103,42 @@ template <class HASHFUNC> class string_registry_two {
     static mapval_t empty_string_node;
 
   public:
-    string_registry_two();
+    API_EXPORT string_registry_two();
     string_registry_two(string_registry_two<HASHFUNC> const &) = delete;
+    string_registry_two &operator=(string_registry_two<HASHFUNC> const &) = delete;
 
     // the number of entries (not counting empty string)
 
-    size_t size() const { return m_fwd_map.size(); }
-    void clear(); // forget everything; free all memory
+    API_EXPORT size_t size() const { return m_fwd_map.size(); }
+    API_EXPORT void clear(); // forget everything; free all memory
     // forward map: string to key
-    string_key map_str(std::string_view s);
-    string_key map_str(std::string const &s);
-    string_key map_str(char const *s);
+    API_EXPORT string_key map_str(std::string_view s);
+    API_EXPORT string_key map_str(std::string const &s);
+    API_EXPORT string_key map_str(char const *s);
 
     // like map_str_(s), but if the string is not in the map already,
     // will *not* add it; it will return the string_key for "".
-    string_key map_str_checked(std::string_view s) const;
+    API_EXPORT string_key map_str_checked(std::string_view s) const;
 
     // reverse map: to read-only C string.
-    static char const *c_str(string_key sk) { return sk->first.data(); }
+    API_EXPORT static char const *c_str(string_key sk) { return sk->first.data(); }
     // reverse map to std::string or view.
-    static std::string unmap(string_key sk) { return std::string(sk->first); }
-    static std::string_view const &unmap_sv(string_key sk) { return sk->first; }
+    API_EXPORT static std::string unmap(string_key sk) { return std::string(sk->first); }
+    API_EXPORT static std::string_view const &unmap_sv(string_key sk) { return sk->first; }
     // this is the string_key for "", which is a statically allocated value.
-    static string_key map_empty_str() { return &empty_string_node; };
+    // Use NOINLINE to avoid "definition of dllimport static field " and "unresolved external symbol" errors on Windows
+    API_EXPORT NOINLINE static string_key map_empty_str() { return &empty_string_node; };
 };
 
 template <class HASHFUNC>
 typename string_registry_two<HASHFUNC>::mapval_t hnnx::string_registry_two<HASHFUNC>::empty_string_node = {{"", 0}, 0};
 
 template <class HASHFUNC>
-hnnx::string_registry_two<HASHFUNC>::string_registry_two() : m_bulk_current(nullptr), m_bulk_pos(0)
+API_EXPORT hnnx::string_registry_two<HASHFUNC>::string_registry_two() : m_bulk_current(nullptr), m_bulk_pos(0)
 {
 }
 
-template <class HASHFUNC> void hnnx::string_registry_two<HASHFUNC>::clear()
+template <class HASHFUNC> API_EXPORT void hnnx::string_registry_two<HASHFUNC>::clear()
 {
     // clear the rev maps
     // clear the fwd map
@@ -185,7 +187,7 @@ typename string_registry_two<HASHFUNC>::string_key hnnx::string_registry_two<HAS
     return &*ins_iter;
 }
 template <class HASHFUNC>
-typename string_registry_two<HASHFUNC>::string_key
+typename string_registry_two<HASHFUNC>::string_key API_FUNC_EXPORT
 hnnx::string_registry_two<HASHFUNC>::map_str_checked(std::string_view s) const
 {
     if (s.size() != 0) {

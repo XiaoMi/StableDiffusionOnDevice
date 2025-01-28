@@ -1,6 +1,6 @@
 //=============================================================================
 //
-//  Copyright (c) 2022-2023 Qualcomm Technologies, Inc.
+//  Copyright (c) 2022-2024 Qualcomm Technologies, Inc.
 //  All Rights Reserved.
 //  Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -26,6 +26,13 @@ extern "C" {
 //=============================================================================
 // Macros
 //=============================================================================
+/**
+ * @brief QnnHtpGraph config value macro. Represents to use the maximum
+ *        available number of the resource.
+ *
+ *        Currently only applicable for QNN_HTP_GRAPH_CONFIG_OPTION_VTCM_SIZE.
+ */
+#define QNN_HTP_GRAPH_CONFIG_OPTION_MAX 0
 
 //=============================================================================
 // Data Types
@@ -41,6 +48,7 @@ typedef enum {
   QNN_HTP_GRAPH_OPTIMIZATION_TYPE_FINALIZE_RETRIES           = 2,
   QNN_HTP_GRAPH_OPTIMIZATION_TYPE_FINALIZE_OPTIMIZATION_FLAG = 3,
   QNN_HTP_GRAPH_OPTIMIZATION_TYPE_ENABLE_DLBC                = 4,
+  
   QNN_HTP_GRAPH_OPTIMIZATION_TYPE_UNKNOWN                    = 0x7fffffff
 } QnnHtpGraph_OptimizationType_t;
 
@@ -99,6 +107,7 @@ typedef enum {
   QNN_HTP_GRAPH_CONFIG_OPTION_FOLD_RELU_ACTIVATION_INTO_CONV_OFF = 4,
   QNN_HTP_GRAPH_CONFIG_OPTION_SHORT_DEPTH_CONV_ON_HMX_OFF        = 5,
   QNN_HTP_GRAPH_CONFIG_OPTION_NUM_HVX_THREADS                    = 6,
+  
   QNN_HTP_GRAPH_CONFIG_OPTION_UNKNOWN                            = 0x7fffffff
 } QnnHtpGraph_ConfigOption_t;
 
@@ -153,6 +162,7 @@ typedef struct {
     bool foldReluActivationIntoConvOff;
     bool shortDepthConvOnHmxOff;
     uint64_t numHvxThreads;
+    
   };
 } QnnHtpGraph_CustomConfig_t;
 

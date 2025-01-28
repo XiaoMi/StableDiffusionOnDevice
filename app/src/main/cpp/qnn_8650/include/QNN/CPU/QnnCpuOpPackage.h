@@ -1,6 +1,6 @@
 //==============================================================================
 //
-//  Copyright (c) 2020-2022 Qualcomm Technologies, Inc.
+//  Copyright (c) 2020-2023 Qualcomm Technologies, Inc.
 //  All Rights Reserved.
 //  Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -25,6 +25,8 @@
 extern "C" {
 #endif
 
+#define QNN_CPUOPPACKAGE_TENSOR_DATA_FORMAT_FLAT_BUFFER 0
+
 /**
  * @brief A value representing a tensor data format.
  */
@@ -41,6 +43,7 @@ typedef double QnnCpuOpPackage_ProfileData_t;
 typedef enum {
   QNN_CPU_PARAMTYPE_SCALAR = 0,
   QNN_CPU_PARAMTYPE_TENSOR = 1,
+  QNN_CPU_PARAMTYPE_STRING = 2,
   // Unused, present to ensure 32 bits.
   QNN_CPU_PARAMTYPE_UNDEFINED = 0xFFFFFFFF
 } QnnCpuOpPackage_ParamType_t;
@@ -133,6 +136,7 @@ typedef struct {
   uint32_t* maxDimensions;
   uint32_t* currentDimensions;
   void* data;
+  Qnn_QuantizeParams_t quantizeParams;
 } QnnCpuOpPackage_Tensor_t;
 
 // clang-format off
@@ -144,7 +148,8 @@ typedef struct {
     0,                                  /*rank*/              \
     NULL,                               /*maxDimensions*/     \
     NULL,                               /*currentDimensions*/ \
-    NULL                                /*data*/              \
+    NULL,                               /*data*/              \
+    QNN_QUANTIZE_PARAMS_INIT            /*quantizeParams*/    \
   }
 // clang-format on
 
@@ -157,6 +162,7 @@ typedef struct {
   const char* name;
   union {
     double scalarParam;
+    const char* string;
     QnnCpuOpPackage_Tensor_t* tensorParam;
   };
 } QnnCpuOpPackage_Param_t;

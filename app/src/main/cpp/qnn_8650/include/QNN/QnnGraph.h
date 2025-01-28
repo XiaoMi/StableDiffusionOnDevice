@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// Copyright (c) 2019-2023 Qualcomm Technologies, Inc.
+// Copyright (c) 2019-2024 Qualcomm Technologies, Inc.
 // All Rights Reserved.
 // Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -62,31 +62,39 @@ typedef enum {
   QNN_GRAPH_ERROR_SET_PROFILE = QNN_MIN_ERROR_GRAPH + 6,
   /// Node added before its dependent node(s)
   QNN_GRAPH_ERROR_UNCONNECTED_NODE = QNN_MIN_ERROR_GRAPH + 7,
-
   /// Failure in creating graph with specified configuration
   QNN_GRAPH_ERROR_CREATE_FAILED = QNN_MIN_ERROR_GRAPH + 20,
   /// Graph couldn't be optimized with specified list of ops or config
   QNN_GRAPH_ERROR_OPTIMIZATION_FAILED = QNN_MIN_ERROR_GRAPH + 21,
   /// Graph finalize failed
   QNN_GRAPH_ERROR_FINALIZE_FAILED = QNN_MIN_ERROR_GRAPH + 22,
-  /// Graph attempted to be executed before being finalized
+  /// Attempt to execute graph before finalizing it
   QNN_GRAPH_ERROR_GRAPH_NOT_FINALIZED = QNN_MIN_ERROR_GRAPH + 23,
-  /// Graph attempted to be modified after being finalized
+  /// Attempt to modify graph after finalizing it
   QNN_GRAPH_ERROR_GRAPH_FINALIZED = QNN_MIN_ERROR_GRAPH + 24,
   /// FIFO queue cannot register any more async execution requests
   QNN_GRAPH_ERROR_EXECUTION_ASYNC_FIFO_FULL = QNN_MIN_ERROR_GRAPH + 25,
-
   /// A control signal object was provided to a call, but that signal object
   /// is already in-use by another call.
   QNN_GRAPH_ERROR_SIGNAL_IN_USE = QNN_MIN_ERROR_GRAPH + 30,
-  /// Return when a call is aborted early due to a QnnSignal_trigger call issued
+  /// Call aborted early due to a QnnSignal_trigger call issued
   /// to the observed signal object.
   QNN_GRAPH_ERROR_ABORTED = QNN_MIN_ERROR_GRAPH + 31,
-  /// A profile handle was bound to a graph, but that profile handle is
-  /// already in-use by another graph.
+  /// Attempt to bind to a graph a profile handle that is already in-use
+  /// by another graph.
   QNN_GRAPH_ERROR_PROFILE_IN_USE = QNN_MIN_ERROR_GRAPH + 32,
-  /// Return when a call is aborted early due to a QnnSignal timeout
+  /// Call aborted early due to a QnnSignal timeout
   QNN_GRAPH_ERROR_TIMED_OUT = QNN_MIN_ERROR_GRAPH + 33,
+  /// Operation not permitted on a subgraph
+  QNN_GRAPH_ERROR_SUBGRAPH = QNN_MIN_ERROR_GRAPH + 34,
+  /// Graph is not enabled
+  QNN_GRAPH_ERROR_DISABLED = QNN_MIN_ERROR_GRAPH + 35,
+  /// Dynamic tensor shape error
+  QNN_GRAPH_ERROR_DYNAMIC_TENSOR_SHAPE = QNN_MIN_ERROR_GRAPH + 36,
+  /// Tensor sparsity error
+  QNN_GRAPH_ERROR_TENSOR_SPARSITY = QNN_MIN_ERROR_GRAPH + 37,
+  /// Early termination error
+  QNN_GRAPH_ERROR_EARLY_TERMINATION = QNN_MIN_ERROR_GRAPH + 38,
 
   ////////////////////////////////////////
   QNN_GRAPH_MAX_ERROR = QNN_MAX_ERROR_GRAPH,
@@ -110,6 +118,17 @@ typedef enum {
   /// Qnn_ProfileHandle_t may only be bound to one graph at a time. A different Qnn_ProfileHandle_t
   /// may be bound to the graph via QnnGraph_setConfig.
   QNN_GRAPH_CONFIG_OPTION_PROFILE_HANDLE = 4,
+  /// Sets the profiling state of a graph. This config should only be used in conjunction with
+  /// profiling handles bound with QNN_GRAPH_CONFIG_OPTION_PROFILE_HANDLE. The behaviour is that
+  /// the profiling data is only collected when the state is enabled. Setting the state to disabled
+  /// causes the profiling data collection to cease. The default state is
+  /// QNN_GRAPH_PROFILING_STATE_ENABLED.
+  QNN_GRAPH_CONFIG_OPTION_SET_PROFILING_STATE = 5,
+  /// Sets the maximum number of QnnGraph_execute/QnnGraph_executeAsync calls that will be profiled.
+  /// This config should only be used in conjunction with profiling handles bound with
+  /// QNN_GRAPH_CONFIG_OPTION_PROFILE_HANDLE. The default is the
+  /// QnnGraph_Config_t::numProfilingExecutions maximum numerical limit.
+  QNN_GRAPH_CONFIG_OPTION_SET_PROFILING_NUM_EXECUTIONS = 6,
   // Unused, present to ensure 32 bits.
   QNN_GRAPH_CONFIG_OPTION_UNDEFINED = 0x7FFFFFFF
 } QnnGraph_ConfigOption_t;
@@ -122,6 +141,18 @@ typedef enum {
 typedef void* QnnGraph_CustomConfig_t;
 
 /**
+ * @brief This enum defines graph profiling states.
+ */
+typedef enum {
+  /// Profiling is enabled for the graph
+  QNN_GRAPH_PROFILING_STATE_ENABLED = 1,
+  /// Profiling is disabled for the graph
+  QNN_GRAPH_PROFILING_STATE_DISABLED = 2,
+  // Unused, present to ensure 32 bits.
+  QNN_GRAPH_PROFILING_STATE_UNDEFINED = 0x7FFFFFFF
+} QnnGraph_ProfilingState_t;
+
+/**
  * @brief This struct provides graph configuration.
  */
 typedef struct {
@@ -130,6 +161,8 @@ typedef struct {
     QnnGraph_CustomConfig_t customConfig;
     Qnn_Priority_t priority;
     Qnn_ProfileHandle_t profileHandle;
+    QnnGraph_ProfilingState_t profilingState;
+    uint32_t numProfilingExecutions;
   };
 } QnnGraph_Config_t;
 
@@ -141,6 +174,72 @@ typedef struct {
       NULL /*customConfig*/                       \
     }                                             \
   }
+
+/**
+ * @brief This enum defines graph property options.
+ */
+typedef enum {
+  /// Sets backend custom properties, see backend specific documentation.
+  QNN_GRAPH_PROPERTY_OPTION_CUSTOM = 0,
+  /// Value selected to ensure 32 bits.
+  QNN_GRAPH_PROPERTY_OPTION_UNDEFINED = 0x7FFFFFFF
+} QnnGraph_PropertyOption_t;
+
+/**
+ * @brief Graph specific object for custom property
+ *
+ * Please refer to documentation provided by the backend for usage information
+ */
+typedef void* QnnGraph_CustomProperty_t;
+
+/**
+ * @brief This struct provides graph property.
+ *        Option is specified by the client. Everything
+ *        else is written by the backend.
+ */
+typedef struct {
+  QnnGraph_PropertyOption_t option;
+  union UNNAMED {
+    QnnGraph_CustomProperty_t customProperty;
+  };
+} QnnGraph_Property_t;
+
+// clang-format off
+/// QnnGraph_Property_t initializer macro
+#define QNN_GRAPH_PROPERTY_INIT                     \
+  {                                                 \
+    QNN_GRAPH_PROPERTY_OPTION_UNDEFINED, /*option*/ \
+    {                                               \
+      NULL /*customProperty*/                       \
+    }                                               \
+  }
+// clang-format on
+
+/**
+ * @brief This enum defines graph execution environment options.
+ */
+typedef enum {
+  // Environment option for binding a set of client registered memory handles for a tensor set.
+  QNN_GRAPH_EXECUTE_ENVIRONMENT_OPTION_BIND_MEM_HANDLES = 0,
+  // Environment option for discovering backend allocated client buffer pointers.
+  QNN_GRAPH_EXECUTE_ENVIRONMENT_OPTION_POPULATE_CLIENT_BUFS = 1,
+  // Unused, present to ensure 32 bits.
+  QNN_GRAPH_EXECUTE_ENVIRONMENT_OPTION_UNDEFINED = 0x7FFFFFFF
+} QnnGraph_ExecuteEnvironmentOption_t;
+
+/**
+ * @brief This struct provides graph execution environment options.
+ * @note QnnGraph_ExecuteEnvironment_t is entirely owned by the client.
+ */
+typedef struct {
+  // Option is required to be set for any instance of QnnGraph_ExecuteEnvironment_t.
+  QnnGraph_ExecuteEnvironmentOption_t option;
+  union UNNAMED {
+    // See QNN_GRAPH_EXECUTE_ENVIRONMENT_OPTION_BIND_MEM_HANDLES and
+    // QNN_GRAPH_EXECUTE_ENVIRONMENT_OPTION_POPULATE_CLIENT_BUFS.
+    Qnn_TensorSet_t tensorSet;
+  };
+} QnnGraph_ExecuteEnvironment_t;
 
 /**
  * @brief This struct provides status associated with Qnn_NotifyFn_t() function.
@@ -216,6 +315,44 @@ Qnn_ErrorHandle_t QnnGraph_create(Qnn_ContextHandle_t contextHandle,
                                   Qnn_GraphHandle_t* graphHandle);
 
 /**
+ * @brief A function to create an empty graph which will be a subgraph of another graph.
+ *        The function returns an opaque object to be used to add nodes to the subgraph.
+ *        A subgraph can not be explicitly finalized or executed. Only a graph with no
+ *        parent graphs can be finalized and executed.
+ *
+ * @param[in] graphHandle Handle to the graph in which the subgraph is created.
+ *
+ * @param[in] graphName A string which identifies the graph. Graph name allows retrieval of the
+ *                      graph after creating the context from cached binary. _graphName_ must be
+ *                      unique within the _context_.
+ *
+ * @param[out] subgraphHandle The created subgraph handle.
+ *
+ * @note A subgraph can have another subgraph as a parent.
+ *
+ * @note Nodes and tensors can be added to a subgraph before and/or after the subgraph handle has
+ *       been included as part of an op config added as a node.
+ *
+ * @return Error code:
+ *         - QNN_SUCCESS: the graph was successfully created
+ *         - QNN_GRAPH_ERROR_INVALID_ARGUMENT: _subgraphHandle_ is NULL
+ *         - QNN_GRAPH_ERROR_INVALID_NAME: _graphName_ is NULL or not unique within the
+ *           _context_
+ *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graphHandle_ is not a valid handle
+ *         - QNN_GRAPH_ERROR_MEM_ALLOC: create failed due to memory/resource allocation
+ *         - QNN_GRAPH_ERROR_UNSUPPORTED_FEATURE: This API is not yet supported
+ *         - QNN_GRAPH_ERROR_CREATE_FAILED: create failed due to some other reason
+ *         - QNN_COMMON_ERROR_OPERATION_NOT_PERMITTED: create failed when context is
+ *           re-created from binary using QnnContext_createFromBinary().
+ *
+ * @note Use corresponding API through QnnInterface_t.
+ */
+QNN_API
+Qnn_ErrorHandle_t QnnGraph_createSubgraph(Qnn_GraphHandle_t graphHandle,
+                                          const char* graphName,
+                                          Qnn_GraphHandle_t* subgraphHandle);
+
+/**
  * @brief A function to set/modify configuration options on an already created graph.
  *        Backends are not required to support this API.
  *
@@ -233,6 +370,7 @@ Qnn_ErrorHandle_t QnnGraph_create(Qnn_ContextHandle_t contextHandle,
  *         - QNN_GRAPH_ERROR_INVALID_ARGUMENT: at least one config option is invalid
  *         - QNN_GRAPH_ERROR_GRAPH_FINALIZED: at least one valid config option is not valid
  *           on a finalized graph
+ *         - QNN_GRAPH_ERROR_SUBGRAPH: operation not permitted on a subgraph
  *         - QNN_GRAPH_ERROR_UNSUPPORTED_FEATURE: at least one valid config option is not supported
  *         - QNN_GRAPH_ERROR_PROFILE_IN_USE: when a profile handle is passed as graph config, that
  *           profile handle can only be bound to one graph at a time
@@ -244,9 +382,36 @@ Qnn_ErrorHandle_t QnnGraph_setConfig(Qnn_GraphHandle_t graphHandle,
                                      const QnnGraph_Config_t** config);
 
 /**
+ * @brief A function to get a list of graph properties.
+ *        Backends are not required to support this API.
+ *
+ * @param[in] graphHandle A graph handle.
+ *
+ * @param[in/out] properties Pointer to a null terminated array of pointers containing the
+ *                           properties associated with the passed graphHandle. Memory for
+ *                           this information is owned and managed by the client. Client
+ *                           needs to populate the property options being requested. If
+ *                           _graphHandle_ is not recognized, the pointer _properties_
+ *                           points to is set to nullptr.
+ *
+ * @return Error code:
+ *         - QNN_SUCCESS: no error is encountered
+ *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graphHandle_ is not a valid handle
+ *         - QNN_GRAPH_ERROR_INVALID_ARGUMENT: _properties_ is NULL or at least one property option
+ *           is invalid
+ *         - QNN_GRAPH_ERROR_UNSUPPORTED_FEATURE: at least one valid property option is not
+ *           supported
+ *
+ * @note Use corresponding API through QnnInterface_t.
+ */
+QNN_API
+Qnn_ErrorHandle_t QnnGraph_getProperty(Qnn_GraphHandle_t graphHandle,
+                                       QnnGraph_Property_t** properties);
+
+/**
  * @brief A function to add a node to the graph
  *
- * @param[in] graphHandle The graph handle to add the node to.
+ * @param[in] graphHandle The graph or sub-graph handle to add the node to.
  *
  * @note The following conditions should be honored by tensors specified as
  *       part of opConfig:
@@ -286,6 +451,7 @@ Qnn_ErrorHandle_t QnnGraph_setConfig(Qnn_GraphHandle_t graphHandle,
  *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graph_ is not a valid handle
  *         - QNN_GRAPH_ERROR_GRAPH_FINALIZED: add nodes on a finalized graph
  *         - QNN_GRAPH_ERROR_UNCONNECTED_NODE: node added before its dependent node(s)
+ *         - QNN_GRAPH_ERROR_UNSUPPORTED_FEATURE: some API feature is not supported yet
  *
  * @note Use corresponding API through QnnInterface_t.
  */
@@ -293,9 +459,12 @@ QNN_API
 Qnn_ErrorHandle_t QnnGraph_addNode(Qnn_GraphHandle_t graphHandle, Qnn_OpConfig_t opConfig);
 
 /**
- * @brief A function to finalize the graph. The runtime will process the
- *        graph, validate that all operations are created successfully and
- *        that connectivity is correct.
+ * @brief A function to finalize the graph.
+ *        If called on a graph that was composed, the runtime will process the graph, validate that
+ *        all operations are created successfully and that connectivity is correct.
+ *        If called on a graph that was retrieved from a context binary (subject to backend support,
+ *        see QNN_PROPERTY_GRAPH_SUPPORT_FINALIZE_DESERIALIZED_GRAPH), the runtime will perform
+ *        additional setup required before execution.
  *
  * @param[in] graphHandle Handle to the graph to be finalized.
  *
@@ -313,6 +482,9 @@ Qnn_ErrorHandle_t QnnGraph_addNode(Qnn_GraphHandle_t graphHandle, Qnn_OpConfig_t
  *
  * @note Graphs that contain zero nodes will fail to finalize.
  *
+ * @note Some runtimes may require that this function is called before execution of a graph
+ *       retrieved from a context binary, refer to backend specific documentation.
+ *
  * @return Error code:
  *         - QNN_SUCCESS: the graph is finalized successfully
  *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graph_ is not a valid handle
@@ -329,6 +501,7 @@ Qnn_ErrorHandle_t QnnGraph_addNode(Qnn_GraphHandle_t graphHandle, Qnn_OpConfig_t
  *         - QNN_GRAPH_ERROR_ABORTED: the call is aborted before completion due to user cancellation
  *         - QNN_GRAPH_ERROR_TIMED_OUT: the call is aborted before completion due to a timeout
  *         - QNN_GRAPH_ERROR_FINALIZE_FAILED: finalize failed for some other reason
+ *         - QNN_GRAPH_ERROR_SUBGRAPH: operation not permitted on a subgraph
  *
  * @note Use corresponding API through QnnInterface_t.
  */
@@ -354,6 +527,7 @@ Qnn_ErrorHandle_t QnnGraph_finalize(Qnn_GraphHandle_t graphHandle,
  *         - QNN_GRAPH_ERROR_INVALID_NAME: _graphName_ or _graph_ is NULL
  *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _context_ is not a valid handle
  *         - QNN_GRAPH_ERROR_GRAPH_DOES_NOT_EXIST: graph not found/created
+ *         - QNN_GRAPH_ERROR_SUBGRAPH: operation not permitted on a subgraph
  *
  * @note Use corresponding API through QnnInterface_t.
  */
@@ -361,6 +535,45 @@ QNN_API
 Qnn_ErrorHandle_t QnnGraph_retrieve(Qnn_ContextHandle_t contextHandle,
                                     const char* graphName,
                                     Qnn_GraphHandle_t* graphHandle);
+
+/**
+ * @brief A function to optionally prepare an execution environment. Client can provide environment
+ *        options to a backend such that optimizations can be applied a backend or discovered by the
+ *        client. The options are:
+ *        - QNN_GRAPH_EXECUTE_ENVIRONMENT_OPTION_BIND_MEM_HANDLES: An option to achieve zero copy of
+ *          tensor data during execution. Done by grouping sets of I/O tensors and binding their
+ *          memory layout to a graph handle before execution.
+ *        - QNN_GRAPH_EXECUTE_ENVIRONMENT_OPTION_POPULATE_CLIENT_BUFS: An option to achieve zero
+ *          copy of tensor data in cases of backend-allocated memory. Clients should use this option
+ *          to discover memory layout of input and output tensors allocated by the backend.
+ *
+ * @note See SDK documentation for backend specific behaviour. Backend support for environment
+ *       options can be determined by querying the corresponding capability.
+ *
+ * @param[in] graphHandle A handle to the graph that is being prepared for execution
+ *
+ * @param[in/out] envs An array of pointers to execution environment options of length envSize. The
+ *                     option field is required to be set for all environments in the array. A
+ *                     backend may not support all options provided. If extra environment options
+ *                     are provided, the backend will set them to a default value (e.g.
+ *                     QNN_TENSOR_SET_INIT).
+ *
+ * @param[in] envSize Size of the array pointed to by envs.
+ *
+ * @return Error code:
+ *         - QNN_SUCCESS: The execution environment was successfully prepared.
+ *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graph_ is not a valid handle.
+ *         - QNN_GRAPH_ERROR_INVALID_ARGUMENT: One or more fields in the provided envs is NULL or
+ *           invalid.
+ *         - QNN_GRAPH_ERROR_UNSUPPORTED_FEATURE: One or more env options is not supported by the
+ *           backend.
+ *
+ * @note Use corresponding API through QnnInterface_t.
+ */
+QNN_API
+Qnn_ErrorHandle_t QnnGraph_prepareExecutionEnvironment(Qnn_GraphHandle_t graphHandle,
+                                                       QnnGraph_ExecuteEnvironment_t** envs,
+                                                       uint32_t envSize);
 
 /**
  * @brief Synchronously execute a finalized graph.
@@ -392,22 +605,33 @@ Qnn_ErrorHandle_t QnnGraph_retrieve(Qnn_ContextHandle_t contextHandle,
  *       following exceptions:
  *       - Tensor data provided by client in structs such as _clientBuf_ can be changed between
  *         invocations to execute().
- *       - An _inputs_ or _outputs_ tensor Qnn_TensorV1_t _dimensions_ field, if non-null, should
+ *       - Batch multiple: An _inputs_ or _outputs_ tensor _dimensions_ field, if non-null, should
  *         match the values provided at tensor creation, with the following exception. The batch
  *         dimension, as determined by the op definition, can be an integer multiple of the
  *         respective dimension provided at tensor creation. All _inputs_ and _outputs_ tensors
  *         must have the same batch multiple.
- *       - Additionally, an _outputs_ tensor Qnn_TensorV1_t _dimensions_ field, if non-null, can
- *         vary after graph execution. As determined by the op definition, non-batch dimensions may
- *         be less than the respective dimension at tensor creation.
+ *       - Dynamic output dimensions: An _outputs_ tensor Qnn_TensorV1_t _dimensions_ field, if
+ *         non-null, can vary after graph execution. As determined by the op definition, non-batch
+ *         dimensions may be less than the respective dimension at tensor creation.
+ *       - Dynamic dimensions: If an _inputs_ tensor was created with a non-null Qnn_TensorV2_t
+ *         _isDynamicDimensions_ field, the corresponding dynamic dimensions must be provided by
+ *         the caller. If an _outputs_ tensor was created with a non-null Qnn_TensorV2_t
+ *         _isDynamicDimensions_ field, the _dimensions_ must be non-null and the output dimensions
+ *         will be written by the backend. In a scenario where maximum dimensions will be exceeded,
+ *         the backend will generate an error code indicating loss of data and will fill the tensor
+ *         with as much data as possible.
  *       - Other fields like _dataType_ can also be permitted to change between invocations to
- *         execute() for certain ops that perform data type conversions.
+ *         QnnGraph_execute()/QnnGraph_executeAsync() for certain ops that perform data type
+ *         conversions.
  *       - Some backends may be able to execute a graph with no _inputs_ provided the graph has no
  *         application-writable tensors.
  *       - Graph I/O Tensors marked optional (i.e. omitted or marked as type=QNN_TENSOR_TYPE_NULL
- *         during QnnGraph_addNode()) cannot be supplied to QnnGraph_execute(). Clients mark
- *         tensors to be of type QNN_TENSOR_TYPE_NULL to indicate that they must be ignored when
- *         constructing a node that lists them as optional.
+ *         during QnnGraph_addNode()) cannot be supplied to
+ *         QnnGraph_execute()/QnnGraph_executeAsync(). Clients mark tensors to be of type
+ *         QNN_TENSOR_TYPE_NULL to indicate that they must be ignored when constructing a node that
+ *         lists them as optional.
+ *       - Mixing different tensor versions in the same graph (e.g. Qnn_TensorV1_t and
+ *         Qnn_TensorV2_t) may result in performance degradation.
  *
  * @note If there are simultaneous calls to QnnGraph_execute() and QnnGraph_executeAsync(), the
  *       priority for enqueuing or executing is equal. Both functions operate on the same queue,
@@ -420,6 +644,7 @@ Qnn_ErrorHandle_t QnnGraph_retrieve(Qnn_ContextHandle_t contextHandle,
  *         - QNN_SUCCESS: the graph was successfully executed
  *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graph_ is not a valid handle
  *         - QNN_GRAPH_ERROR_GRAPH_NOT_FINALIZED: graph was not finalized
+ *         - QNN_GRAPH_ERROR_SUBGRAPH: cannot execute a subgraph
  *         - QNN_GRAPH_ERROR_INVALID_ARGUMENT:
  *            - _inputs_ or _outputs_ is NULL or ill-formed OR
  *            - _inputs_ is NOT NULL and _numInputs_ is 0 OR
@@ -436,9 +661,17 @@ Qnn_ErrorHandle_t QnnGraph_retrieve(Qnn_ContextHandle_t contextHandle,
  *           another call.
  *         - QNN_GRAPH_ERROR_ABORTED: the call is aborted before completion due to user cancellation
  *         - QNN_GRAPH_ERROR_TIMED_OUT: the call is aborted before completion due to a timeout
+ *         - QNN_GRAPH_ERROR_DISABLED: the graph was not enabled when the context was deserialized
+ *         - QNN_GRAPH_ERROR_DYNAMIC_TENSOR_SHAPE: An error occurred that is related to dynamic
+ *           tensor shape. For example, a tensor maximum dimension was exceeded.
+ *         - QNN_GRAPH_ERROR_TENSOR_SPARSITY: An error occurred that is related to tensor sparsity.
+ *           For example, the maximum number of specified elements was exceeded.
+ *         - QNN_GRAPH_ERROR_EARLY_TERMINATION: Graph execution terminated early due to defined op
+ *           behavior.
  *
  * @note Use corresponding API through QnnInterface_t.
  */
+
 QNN_API
 Qnn_ErrorHandle_t QnnGraph_execute(Qnn_GraphHandle_t graphHandle,
                                    const Qnn_Tensor_t* inputs,
@@ -477,12 +710,17 @@ Qnn_ErrorHandle_t QnnGraph_execute(Qnn_GraphHandle_t graphHandle,
  *                         executions in the queue are affected by Signal control. Instance
  *                         executing when Signal control is issued may not be affected.
  *                         The signal object, if not NULL, is considered to be in-use
- *                         for the duration of the call.
+ *                         for the duration of the call. For timeout signals, the timeout
+ *                         duration applies from the QnnGraph_executeAsync call until the
+ *                         callback is called. The same Qnn_GraphHandle_t can be used
+ *                         for multiple calls to QnnGraph_executeAsync, however, different
+ *                         Qnn_SignalHandle_t must be supplied.
  *
  * @param[in] notifyFn Pointer to notification function, called when execution is finished. NULL
  *                     indicates no notification is requested. _notifyFn_ will be called in
  *                     context of backend owned thread, with priority equal or lower than client's
- *                     calling thread.
+ *                     calling thread. Please note that a failed call to QnnGraph_executeAsync
+ *                     does not call the notification function.
  *
  * @param[in] notifyParam Client-supplied data object which will be passed back via _notifyFn_ and
  *                        can be used to identify asynchronous execution instance. Can be NULL.
@@ -493,19 +731,33 @@ Qnn_ErrorHandle_t QnnGraph_execute(Qnn_GraphHandle_t graphHandle,
  *       following exceptions:
  *       - Tensor data provided by client in structs such as _clientBuf_ can be changed between
  *         invocations to execute().
- *       - An _inputs_ or _outputs_ tensor Qnn_TensorV1_t _dimensions_ field, if non-null, should
+ *       - Batch multiple: An _inputs_ or _outputs_ tensor _dimensions_ field, if non-null, should
  *         match the values provided at tensor creation, with the following exception. The batch
  *         dimension, as determined by the op definition, can be an integer multiple of the
  *         respective dimension provided at tensor creation. All _inputs_ and _outputs_ tensors
  *         must have the same batch multiple.
- *       - Additionally, an _outputs_ tensor Qnn_TensorV1_t _dimensions_ field, if non-null, can
- *         vary after graph execution. As determined by the op definition, non-batch dimensions may
- *         be less than the respective dimension at tensor creation.
+ *       - Dynamic output dimensions: An _outputs_ tensor Qnn_TensorV1_t _dimensions_ field, if
+ *         non-null, can vary after graph execution. As determined by the op definition, non-batch
+ *         dimensions may be less than the respective dimension at tensor creation.
+ *       - Dynamic dimensions: If an _inputs_ tensor was created with a non-null Qnn_TensorV2_t
+ *         _isDynamicDimensions_ field, the corresponding dynamic dimensions must be provided by
+ *         the caller. If an _outputs_ tensor was created with a non-null Qnn_TensorV2_t
+ *         _isDynamicDimensions_ field, the _dimensions_ must be non-null and the output dimensions
+ *         will be written by the backend. In a scenario where maximum dimensions will be exceeded,
+ *         the backend will generate an error code indicating loss of data and will fill the tensor
+ *         with as much data as possible.
+ *       - Other fields like _dataType_ can also be permitted to change between invocations to
+ *         QnnGraph_execute()/QnnGraph_executeAsync() for certain ops that perform data type
+ *         conversions.
  *       - Some backends may be able to execute a graph with no _inputs_ provided the graph has no
  *         application-writable tensors.
- *       - Graph I/O Tensors marked optional (type=QNN_TENSOR_TYPE_NULL) cannot be supplied to
- *         QnnGraph_executeAsync(). Clients mark tensors to be of type QNN_TENSOR_TYPE_NULL to
- *         indicate that they must be ignored when constructing a node that lists them as optional.
+ *       - Graph I/O Tensors marked optional (i.e. omitted or marked as type=QNN_TENSOR_TYPE_NULL
+ *         during QnnGraph_addNode()) cannot be supplied to
+ *         QnnGraph_execute()/QnnGraph_executeAsync(). Clients mark tensors to be of type
+ *         QNN_TENSOR_TYPE_NULL to indicate that they must be ignored when constructing a node that
+ *         lists them as optional.
+ *       - Mixing different tensor versions in the same graph (e.g. Qnn_TensorV1_t and
+ *         Qnn_TensorV2_t) may result in performance degradation.
  *
  * @note If there are simultaneous calls to QnnGraph_execute() and QnnGraph_executeAsync(), the
  *       priority for enqueuing or executing is equal. Both functions will add to the same queue,
@@ -516,6 +768,7 @@ Qnn_ErrorHandle_t QnnGraph_execute(Qnn_GraphHandle_t graphHandle,
  *         - QNN_SUCCESS: the graph was successfully executed
  *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graph_ is not a valid handle
  *         - QNN_GRAPH_ERROR_GRAPH_NOT_FINALIZED: graph was not finalized
+ *         - QNN_GRAPH_ERROR_SUBGRAPH: cannot execute a subgraph
  *         - QNN_GRAPH_ERROR_INVALID_ARGUMENT:
  *            - _inputs_ or _outputs_ is NULL or ill-formed OR
  *            - _inputs_ is NOT NULL and _numInputs_ is 0 OR
@@ -531,6 +784,13 @@ Qnn_ErrorHandle_t QnnGraph_execute(Qnn_GraphHandle_t graphHandle,
  *           another call.
  *         - QNN_GRAPH_ERROR_ABORTED: the call is aborted before completion due to user cancellation
  *         - QNN_GRAPH_ERROR_TIMED_OUT: the call is aborted before completion due to a timeout
+ *         - QNN_GRAPH_ERROR_DISABLED: the graph was not enabled when the context was deserialized
+ *         - QNN_GRAPH_ERROR_DYNAMIC_TENSOR_SHAPE: An error occurred that is related to dynamic
+ *           tensor shape. For example, a tensor maximum dimension was exceeded.
+ *         - QNN_GRAPH_ERROR_TENSOR_SPARSITY: An error occurred that is related to tensor sparsity.
+ *           For example, the maximum number of specified elements was exceeded.
+ *         - QNN_GRAPH_ERROR_EARLY_TERMINATION: Graph execution terminated early due to defined op
+ *           behavior.
  *
  * @note Use corresponding API through QnnInterface_t.
  */
@@ -544,6 +804,32 @@ Qnn_ErrorHandle_t QnnGraph_executeAsync(Qnn_GraphHandle_t graphHandle,
                                         Qnn_SignalHandle_t signalHandle,
                                         Qnn_NotifyFn_t notifyFn,
                                         void* notifyParam);
+
+/**
+ * @brief A function to release an execution environment prepared via
+ *        QnnGraph_prepareExecutionEnvironment. If this API is not called, environments will be
+ *        released automatically during QnnContext_free.
+ *
+ * @param[in] graphHandle Handle to the graph that the environment is being released from.
+ *
+ * @param[in] envs An array of pointers to execution environment options previously used for
+ *                 preparation.
+ *
+ * @param[in] envSize Size of the array pointed to by envs.
+ *
+ * @return Error code:
+ *         - QNN_SUCCESS: The execution environment was successfully released.
+ *         - QNN_GRAPH_ERROR_INVALID_HANDLE: _graph_ is not a valid handle.
+ *         - QNN_GRAPH_ERROR_INVALID_ARGUMENT: Invalid envs provided to be released.
+ *         - QNN_GRAPH_ERROR_UNSUPPORTED_FEATURE: One or more envs options is not supported by the
+ *           backend.
+ *
+ * @note Use corresponding API through QnnInterface_t.
+ */
+QNN_API
+Qnn_ErrorHandle_t QnnGraph_releaseExecutionEnvironment(Qnn_GraphHandle_t graphHandle,
+                                                       const QnnGraph_ExecuteEnvironment_t** envs,
+                                                       uint32_t envSize);
 
 #ifdef __cplusplus
 }  // extern "C"

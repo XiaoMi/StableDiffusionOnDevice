@@ -9,6 +9,8 @@
 #ifndef HEXNN_FORWARD_CLASSES_H
 #define HEXNN_FORWARD_CLASSES_H 1
 
+#include <memory>
+
 #include "weak_linkage.h"
 PUSH_VISIBILITY(default)
 
@@ -34,14 +36,16 @@ template <typename T> class DeleterWithDisable {
     bool skip_delete;
 
   public:
-    DeleterWithDisable() : skip_delete(false) {}
-    explicit DeleterWithDisable(bool skip) : skip_delete(skip) {}
+    API_FUNC_EXPORT DeleterWithDisable() : skip_delete(false) {}
+    API_FUNC_EXPORT explicit DeleterWithDisable(bool skip) : skip_delete(skip) {}
+    API_FUNC_EXPORT DeleterWithDisable(DeleterWithDisable const &) = default;
+    API_FUNC_EXPORT DeleterWithDisable &operator=(DeleterWithDisable const &) = default;
     // this conversion allows us to convert a unique_ptr<T> to unique_ptr<T,DeleterWithDisable<T> >
-    DeleterWithDisable(std::default_delete<T> const &) : skip_delete(false) {}
-    void operator()(T const *p) const;
-    inline bool delete_disabled() const { return skip_delete; }
+    API_FUNC_EXPORT DeleterWithDisable(std::default_delete<T> const &) : skip_delete(false) {}
+    API_FUNC_EXPORT void operator()(T const *p) const;
+    API_FUNC_EXPORT inline bool delete_disabled() const { return skip_delete; }
 };
-template <typename T> void DeleterWithDisable<T>::operator()(T const *p) const
+template <typename T> API_FUNC_EXPORT void DeleterWithDisable<T>::operator()(T const *p) const
 {
     if (!skip_delete) delete p;
 }
@@ -58,11 +62,20 @@ typedef std::unique_ptr<Tensor, Tensor_Deleter> uptr_Tensor;
 // it will return true if the skip flag is set (i.e the object
 // is in a crate).
 //
-template <typename TA, typename TB> inline bool is_in_crate(std::unique_ptr<TA, DeleterWithDisable<TB>> &tp)
+template <typename TA, typename TB>
+API_FUNC_EXPORT inline bool is_in_crate(std::unique_ptr<TA, DeleterWithDisable<TB>> &tp)
 {
     return tp.get() != nullptr && tp.get_deleter().delete_disabled();
 }
 
+// For extended DMA, this will change to 'uint64_t' on hexagon builds for arch which support it.
+// See [HEXNNVVV-3774]
+using far_vm_ptr = size_t;
+// convert a pointer to a far_vm_ptr
+template <typename T> inline far_vm_ptr far_vm_ptr_from_ptr(T *const p)
+{
+    return (far_vm_ptr)(size_t)p;
+}
 } // namespace hnnx
 
 POP_VISIBILITY()

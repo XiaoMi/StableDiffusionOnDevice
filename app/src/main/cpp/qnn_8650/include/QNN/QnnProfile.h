@@ -141,6 +141,16 @@ extern "C" {
 #define QNN_PROFILE_EVENTTYPE_DEINIT 500
 
 /**
+ * @brief QnnProfile_EventType_t definition to get traces related to graph
+ *        preparation and execution steps. This profile data captures stats
+ *        for QnnGraph_execute.
+ *
+ * @note trace information is available on QNN_PROFILE_LEVEL_DETAILED
+ *       level only.
+ */
+#define QNN_PROFILE_EVENTTYPE_TRACE 600
+
+/**
  * @brief QnnProfile_EventType_t definition reserved for each back end to define
  *        and extend
  *
@@ -224,10 +234,9 @@ typedef enum {
   QNN_PROFILE_ERROR_MEM_ALLOC = QNN_COMMON_ERROR_MEM_ALLOC,
   /// Invalid/NULL QNN profile handle
   QNN_PROFILE_ERROR_INVALID_HANDLE = QNN_MIN_ERROR_PROFILE + 0,
-  /// Returned when a profile handle which is in-use is attempted to be freed,
-  /// or reconfigured.
+  /// Attempt to free or reconfigure a profile handle that is in-use
   QNN_PROFILE_ERROR_HANDLE_IN_USE = QNN_MIN_ERROR_PROFILE + 1,
-  /// Returned when an event is incompatible with an API
+  /// Event is incompatible with API
   QNN_PROFILE_ERROR_INCOMPATIBLE_EVENT = QNN_MIN_ERROR_PROFILE + 2,
 
   ////////////////////////////////////////////
@@ -377,6 +386,9 @@ typedef enum {
   /// determined by the backend and available system resources. The default
   /// maximum number of events is backend-specific, refer to SDK documentation.
   QNN_PROFILE_CONFIG_OPTION_MAX_EVENTS = 1,
+  /// Set optrace profiling support via enableOptrace flag.
+  /// Please note that the trace information is available on QNN_PROFILE_LEVEL_DETAILED level only.
+  QNN_PROFILE_CONFIG_OPTION_ENABLE_OPTRACE = 2,
   /// Value selected to ensure 32 bits.
   QNN_PROFILE_CONFIG_OPTION_UNDEFINED = 0x7FFFFFFF
 } QnnProfile_ConfigOption_t;
@@ -396,6 +408,7 @@ typedef struct {
   union UNNAMED {
     QnnProfile_CustomConfig_t customConfig;
     uint64_t numMaxEvents;
+    uint8_t enableOptrace;
   };
 } QnnProfile_Config_t;
 

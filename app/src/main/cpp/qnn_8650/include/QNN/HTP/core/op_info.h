@@ -52,23 +52,23 @@ class OpInfo {
 
     ~OpInfo() = default;
 
-    Flags_word get_flags() const { return flags; }
+    API_EXPORT Flags_word get_flags() const { return flags; }
 
-    cost_function_t const &get_cost() const { return cost; }
+    API_EXPORT cost_function_t const &get_cost() const { return cost; }
 
-    bool is_external() const { return is_external_flag; }
+    API_EXPORT bool is_external() const { return is_external_flag; }
 
-    const char *get_type_tag() const { return type_tag.data(); }
+    API_EXPORT const char *get_type_tag() const { return type_tag.data(); }
 
-    OpFactory get_op_factory() const { return !is_simple_op ? op_factory : nullptr; }
-    SimpleOpFactory get_simple_op_factory() const { return is_simple_op ? simple_op_factory : nullptr; }
+    API_EXPORT OpFactory get_op_factory() const { return !is_simple_op ? op_factory : nullptr; }
+    API_EXPORT SimpleOpFactory get_simple_op_factory() const { return is_simple_op ? simple_op_factory : nullptr; }
 };
 
 using InfoMapType = std::map<std::type_index, OpInfo>;
 
 // after the instance is constructed, this points to it.
 extern InfoMapType *op_info_map_inst_p;
-InfoMapType &get_op_info_map_function();
+API_FUNC_EXPORT InfoMapType &get_op_info_map_function();
 
 inline InfoMapType &get_op_info_map()
 {
@@ -76,28 +76,28 @@ inline InfoMapType &get_op_info_map()
 }
 
 // most access to the map are lookup. This does a lookup and returns null if not found.
-OpInfo const *op_info_map_lookup(std::type_index tind);
+API_FUNC_EXPORT OpInfo const *op_info_map_lookup(std::type_index tind);
 
 // handy adapters
-inline OpInfo const *op_info_map_lookup(std::type_info const &t)
+API_FUNC_EXPORT inline OpInfo const *op_info_map_lookup(std::type_info const &t)
 {
     return op_info_map_lookup(std::type_index(t));
 }
 template <typename OP> // can't just use Op since it's incomplete here.
-inline OpInfo const *op_info_map_lookup(OP const *op)
+API_FUNC_EXPORT inline OpInfo const *op_info_map_lookup(OP const *op)
 {
     static_assert(std::is_base_of<Op, OP>::value);
     return op_info_map_lookup(std::type_index(typeid(*op)));
 }
 
-void register_op_info(const std::type_info &type, cost_function_t cost, Flags_word flags, OpFactory op_factory,
-                      bool is_external, const std::string_view type_tag);
-void register_op_info(const std::type_info &type, cost_function_t cost, Flags_word flags, SimpleOpFactory op_factory,
-                      bool is_external, const std::string_view type_tag);
+API_FUNC_EXPORT void register_op_info(const std::type_info &type, cost_function_t cost, Flags_word flags,
+                                      OpFactory op_factory, bool is_external, const std::string_view type_tag);
+API_FUNC_EXPORT void register_op_info(const std::type_info &type, cost_function_t cost, Flags_word flags,
+                                      SimpleOpFactory op_factory, bool is_external, const std::string_view type_tag);
 
 template <typename T, typename OPFACTORY>
-inline void register_op_info(cost_function_t cost, Flags_word flags, OPFACTORY op_factory, bool is_external,
-                             const std::string_view type_tag)
+API_FUNC_EXPORT inline void register_op_info(cost_function_t cost, Flags_word flags, OPFACTORY op_factory,
+                                             bool is_external, const std::string_view type_tag)
 {
     return register_op_info(typeid(T), cost, flags, op_factory, is_external, type_tag);
 }

@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// Copyright (c) 2019-2023 Qualcomm Technologies, Inc.
+// Copyright (c) 2019-2024 Qualcomm Technologies, Inc.
 // All Rights Reserved.
 // Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -68,7 +68,8 @@ typedef enum {
   QNN_CONTEXT_ERROR_SET_PROFILE = QNN_MIN_ERROR_CONTEXT + 9,
   /// Invalid config
   QNN_CONTEXT_ERROR_INVALID_CONFIG = QNN_MIN_ERROR_CONTEXT + 10,
-
+  /// Attempt to create a context from suboptimal binary
+  QNN_CONTEXT_ERROR_BINARY_SUBOPTIMAL = QNN_MIN_ERROR_CONTEXT + 11,
   ////////////////////////////////////////////
   QNN_CONTEXT_MAX_ERROR = QNN_MAX_ERROR_CONTEXT,
   // Unused, present to ensure 32 bits.
@@ -101,9 +102,32 @@ typedef enum {
   /// determined by the backend and available system resources. The default depth is
   /// backend-specific, refer to SDK documentation.
   QNN_CONTEXT_CONFIG_ASYNC_EXECUTION_QUEUE_DEPTH = 4,
+  /// Null terminated array of null terminated strings listing the names of the graphs to
+  /// deserialize from a context binary. All graphs are enabled by default. An error is generated if
+  /// an invalid graph name is provided.
+  QNN_CONTEXT_CONFIG_ENABLE_GRAPHS = 5,
+  /// Sets the peak memory limit hint of a deserialized context in megabytes
+  QNN_CONTEXT_CONFIG_MEMORY_LIMIT_HINT = 6,
+  /// Indicates that the context binary pointer is available during QnnContext_createFromBinary and
+  /// until QnnContext_free is called.
+  QNN_CONTEXT_CONFIG_PERSISTENT_BINARY = 7,
+  /// Sets the context binary check type when reading binary caches
+  QNN_CONTEXT_CONFIG_BINARY_COMPATIBILITY = 8,
   // Unused, present to ensure 32 bits.
   QNN_CONTEXT_CONFIG_UNDEFINED = 0x7FFFFFFF
 } QnnContext_ConfigOption_t;
+
+typedef enum {
+  /// A binary cache is compatible if it could run on the device. This is the
+  /// default.
+  QNN_CONTEXT_BINARY_COMPATIBILITY_PERMISSIVE = 0,
+  /// A binary cache is compatible if it could run on the device and fully
+  /// utilize hardware capability, otherwise QnnContext_CreateFromBinary
+  /// may return QNN_CONTEXT_ERROR_BINARY_SUBOPTIMAL.
+  QNN_CONTEXT_BINARY_COMPATIBILITY_STRICT = 1,
+  // Unused, present to ensure 32 bits
+  QNN_CONTEXT_BINARY_COMPATIBILITY_TYPE_UNDEFINED = 0x7FFFFFF
+} QnnContext_BinaryCompatibilityType_t;
 
 typedef enum {
   /// Sets a numeric value for the maximum queue depth
@@ -138,11 +162,24 @@ typedef struct {
 typedef struct {
   QnnContext_ConfigOption_t option;
   union UNNAMED {
+    /// Used with QNN_CONTEXT_CONFIG_OPTION_CUSTOM.
     QnnContext_CustomConfig_t customConfig;
+    /// Used with QNN_CONTEXT_CONFIG_OPTION_PRIORITY.
     Qnn_Priority_t priority;
+    /// Used with QNN_CONTEXT_CONFIG_OPTION_ERROR_REPORTING.
     Qnn_ErrorReportingConfig_t errorConfig;
+    /// DEPRECATED. Used with QNN_CONTEXT_CONFIG_OPTION_OEM_STRING
     const char* oemString;
+    /// Used with QNN_CONTEXT_CONFIG_ASYNC_EXECUTION_QUEUE_DEPTH
     QnnContext_AsyncExecutionQueueDepth_t asyncExeQueueDepth;
+    /// Used with QNN_CONTEXT_CONFIG_ENABLE_GRAPHS
+    const char* const* enableGraphs;
+    /// Used with QNN_CONTEXT_CONFIG_MEMORY_LIMIT_HINT
+    uint64_t memoryLimitHint;
+    /// Used with QNN_CONTEXT_CONFIG_PERSISTENT_BINARY
+    uint8_t isPersistentBinary;
+    /// Used with QNN_CONTEXT_CONFIG_BINARY_COMPATIBILITY
+    QnnContext_BinaryCompatibilityType_t binaryCompatibilityType;
   };
 } QnnContext_Config_t;
 
@@ -208,6 +245,7 @@ Qnn_ErrorHandle_t QnnContext_create(Qnn_BackendHandle_t backend,
  *         - QNN_SUCCESS: no error is encountered
  *         - QNN_CONTEXT_ERROR_INVALID_HANDLE:  _context_ is not a valid handle
  *         - QNN_CONTEXT_ERROR_INVALID_ARGUMENT: at least one config option is invalid
+ *         - QNN_CONTEXT_ERROR_UNSUPPORTED_FEATURE: an optional feature is not supported
  *
  * @note Use corresponding API through QnnInterface_t.
  */
@@ -320,6 +358,8 @@ Qnn_ErrorHandle_t QnnContext_getBinary(Qnn_ContextHandle_t context,
  *           create context from it
  *         - QNN_CONTEXT_ERROR_BINARY_VERSION: incompatible version of the binary
  *         - QNN_CONTEXT_ERROR_BINARY_CONFIGURATION: binary is not configured for this device
+ *         - QNN_CONTEXT_ERROR_BINARY_SUBOPTIMAL: suboptimal binary is used when
+ *           QNN_CONTEXT_BINARY_COMPATIBILITY_STRICT is specified in the config option
  *         - QNN_CONTEXT_ERROR_SET_PROFILE: failed to set profiling info
  *         - QNN_CONTEXT_ERROR_INVALID_HANDLE: _backend_, __profile_, or _device_ is not a
  *           valid handle
@@ -357,6 +397,48 @@ Qnn_ErrorHandle_t QnnContext_createFromBinary(Qnn_BackendHandle_t backend,
  */
 QNN_API
 Qnn_ErrorHandle_t QnnContext_free(Qnn_ContextHandle_t context, Qnn_ProfileHandle_t profile);
+
+/**
+ * @brief A function to validate a stored binary.
+ *        The binary was previously obtained via QnnContext_getBinary() and stored by a client.
+ *
+ * @param[in] backend A backend handle.
+ *
+ * @param[in] device A device handle to set hardware affinity for the created context. NULL value
+ *                   can be supplied for device handle and it is equivalent to calling
+ *                   QnnDevice_create() with NULL config.
+ *
+ * @param[in] config Pointer to a NULL terminated array of config option pointers. NULL is allowed
+ *                   and indicates no config options are provided. In case they are not provided,
+ *                   all config options have a default value in accordance with the serialized
+ *                   context. If the same config option type is provided multiple times, the last
+ *                   option value will be used.
+ *
+ * @param[in] binaryBuffer A pointer to the context binary.
+ *
+ * @param[in] binaryBufferSize Holds the size of the context binary.
+ *
+ * @return Error code:
+ *         - QNN_SUCCESS: no error is encountered
+ *         - QNN_CONTEXT_ERROR_UNSUPPORTED_FEATURE: a feature is not supported
+ *         - QNN_CONTEXT_ERROR_INVALID_ARGUMENT: _binaryBuffer_ is NULL
+ *         - QNN_CONTEXT_ERROR_MEM_ALLOC: memory allocation error while validating binary cache
+ *         - QNN_CONTEXT_ERROR_CREATE_FROM_BINARY: failed to validate binary cache
+ *         - QNN_CONTEXT_ERROR_BINARY_VERSION: incompatible version of the binary
+ *         - QNN_CONTEXT_ERROR_BINARY_CONFIGURATION: binary is not configured for this device
+ *         - QNN_CONTEXT_ERROR_BINARY_SUBOPTIMAL: suboptimal binary is used when
+ *           QNN_CONTEXT_BINARY_COMPATIBILITY_STRICT is specified in the config option
+ *         - QNN_CONTEXT_ERROR_INVALID_HANDLE: _backend_, or _device_ is not a valid handle
+ *         - QNN_CONTEXT_ERROR_INVALID_CONFIG: one or more config values is invalid
+ *
+ * @note Use corresponding API through QnnInterface_t.
+ */
+QNN_API
+Qnn_ErrorHandle_t QnnContext_validateBinary(Qnn_BackendHandle_t backend,
+                                            Qnn_DeviceHandle_t device,
+                                            const QnnContext_Config_t** config,
+                                            const void* binaryBuffer,
+                                            Qnn_ContextBinarySize_t binaryBufferSize);
 
 #ifdef __cplusplus
 }  // extern "C"

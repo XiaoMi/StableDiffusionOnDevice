@@ -33,9 +33,11 @@
 #include "match_op.h"
 #include "oexpr.h"
 #include "op_package_name.h"
+#include "tensor_info.h"
 #include "macros_attribute.h"
 #include "weak_linkage.h"
 
+#ifndef PREPARE_DISABLED
 /*
  * We want Match, Replacement, and Constraint to have mostly their own namespace,
  * so that things like "OP" can mean different things in different places.
@@ -65,6 +67,7 @@ class Replacement;
 using ReplFunc = OptFunction<OpRef(Replacement &, OpDef const &)>;
 
 namespace hnnx {
+
 class Match;
 
 typedef std::function<bool(Match &, OpDef const &)> MatchFunc;
@@ -91,7 +94,7 @@ inline ReplFunc wrap_as_replfunc(ReplFunc const &rep)
 #include "weak_linkage.h"
 PUSH_VISIBILITY(default)
 namespace gxE {
-class GXEngine;
+class API_EXPORT GXEngine;
 }
 POP_VISIBILITY()
 
@@ -136,16 +139,18 @@ struct optim_config_values {
 };
 
 // wrapper functions for graph access
-OpRef graph_gen_Const_int32_common_wrapper(Graph &graph_in, const OpDef &old, const OutputDef &out_def,
-                                           const uint8_t *data, size_t data_len);
+API_EXPORT OpRef graph_gen_Const_int32_common_wrapper(Graph &graph_in, const OpDef &old, const OutputDef &out_def,
+                                                      const uint8_t *data, size_t data_len);
 
 template <DType DT>
-OpRef graph_gen_Const_scalar_wrapper(Graph &graph_in, const OpDef &old,
-                                     typename dtype_traits<DT>::element_type constval);
+API_EXPORT OpRef graph_gen_Const_scalar_wrapper(Graph &graph_in, const OpDef &old,
+                                                typename dtype_traits<DT>::element_type constval);
 
 // these are written as specializations.
-template <> OpRef graph_gen_Const_scalar_wrapper<DType::Int32>(Graph &graph_in, const OpDef &old, NN_INT32_T constval);
-template <> OpRef graph_gen_Const_scalar_wrapper<DType::Float32>(Graph &graph_in, const OpDef &old, float constval);
+template <>
+API_EXPORT OpRef graph_gen_Const_scalar_wrapper<DType::Int32>(Graph &graph_in, const OpDef &old, NN_INT32_T constval);
+template <>
+API_EXPORT OpRef graph_gen_Const_scalar_wrapper<DType::Float32>(Graph &graph_in, const OpDef &old, float constval);
 POP_VISIBILITY()
 
 /* EJP: FIXME: A lot of stuff has accumulated here... const generation, helper functions, etc... */
@@ -283,15 +288,18 @@ struct QuickShape {
     // build with a given rank, and all zero dims
     static inline constexpr QuickShape make_empty(unsigned r) { return QuickShape(empty_rank{r}); }
     // shortcut for make_empty( odef.rank)
-    static inline QuickShape make_empty(OutputDef const &odef) { return QuickShape(empty_rank{unsigned(odef.rank)}); }
+    API_EXPORT static inline QuickShape make_empty(OutputDef const &odef)
+    {
+        return QuickShape(empty_rank{unsigned(odef.rank)});
+    }
 };
 
 // This is an 'immediate' gen_Shape. Shape can be given as vararg ints,
 // or as std::vector<size_t>.
 //
 
-template <typename... Ts> OpRef gen_Shape_immed(const OpDef &some_op, Ts... sizes);
-OpRef gen_Shape_immed(const OpDef &some_op, std::vector<size_t> const &shape);
+template <typename... Ts> API_EXPORT OpRef gen_Shape_immed(const OpDef &some_op, Ts... sizes);
+API_EXPORT OpRef gen_Shape_immed(const OpDef &some_op, std::vector<size_t> const &shape);
 
 POP_VISIBILITY()
 
@@ -307,8 +315,8 @@ template <DType DT> inline OpRef gen_ConstScalar_imm(const OpDef &old, typename 
 PUSH_VISIBILITY(default)
 /// \ingroup OptReplacement
 /// @brief gen_ConstScalar_f32(floatval) - Make an Opdef_Const with given scalar float value
-ReplFunc gen_ConstScalar_f32(float constval);
-ReplFunc gen_ConstScalar_f32_func(ReplFuncFloat &&constval_f);
+API_EXPORT ReplFunc gen_ConstScalar_f32(float constval);
+API_EXPORT ReplFunc gen_ConstScalar_f32_func(ReplFuncFloat &&constval_f);
 POP_VISIBILITY()
 
 template <typename T> inline ReplFunc gen_ConstScalar_f32(T &&expr)
@@ -319,8 +327,8 @@ template <typename T> inline ReplFunc gen_ConstScalar_f32(T &&expr)
 PUSH_VISIBILITY(default)
 /// \ingroup OptReplacement
 /// @brief gen_ConstScalar_i32(intval) - Make an Opdef_Const with given scalar float value
-ReplFunc gen_ConstScalar_i32(int constval);
-ReplFunc gen_ConstScalar_i32_func(ReplFuncInt &&constval_f);
+API_EXPORT ReplFunc gen_ConstScalar_i32(int constval);
+API_EXPORT ReplFunc gen_ConstScalar_i32_func(ReplFuncInt &&constval_f);
 POP_VISIBILITY()
 
 template <typename T> inline ReplFunc gen_ConstScalar_i32(T &&expr)
@@ -329,8 +337,8 @@ template <typename T> inline ReplFunc gen_ConstScalar_i32(T &&expr)
 }
 
 PUSH_VISIBILITY(default)
-ReplFunc gen_ConstArr_f32(float constval, size_t n);
-ReplFunc gen_ConstArr_f32_func(ReplFuncFloat &&val_func, ReplFuncInt &&n_func);
+API_EXPORT ReplFunc gen_ConstArr_f32(float constval, size_t n);
+API_EXPORT ReplFunc gen_ConstArr_f32_func(ReplFuncFloat &&val_func, ReplFuncInt &&n_func);
 POP_VISIBILITY()
 
 template <typename TVAL, typename TN> inline ReplFunc gen_ConstArr_f32(TVAL &&val, TN &&nn)
@@ -340,8 +348,8 @@ template <typename TVAL, typename TN> inline ReplFunc gen_ConstArr_f32(TVAL &&va
 }
 
 PUSH_VISIBILITY(default)
-ReplFunc gen_ConstArr_i32(NN_INT32_T constval, size_t n);
-ReplFunc gen_ConstArr_i32_func(ReplFuncInt &&val_func, ReplFuncInt &&n_func);
+API_EXPORT ReplFunc gen_ConstArr_i32(NN_INT32_T constval, size_t n);
+API_EXPORT ReplFunc gen_ConstArr_i32_func(ReplFuncInt &&val_func, ReplFuncInt &&n_func);
 POP_VISIBILITY()
 
 template <typename TVAL, typename TN> inline ReplFunc gen_ConstArr_i32(TVAL &&val, TN &&nn)
@@ -356,9 +364,9 @@ PUSH_VISIBILITY(default)
 // with the given set of values in it.
 
 // this implementation only used when all the values are constants
-ReplFunc gen_ConstMat_i32__func(std::vector<NN_INT32_T> &&);
+API_EXPORT ReplFunc gen_ConstMat_i32__func(std::vector<NN_INT32_T> &&);
 // this one is passed a std::vector of ReplFuncInt
-ReplFunc gen_ConstMat_i32__func(std::vector<ReplFuncInt> &&);
+API_EXPORT ReplFunc gen_ConstMat_i32__func(std::vector<ReplFuncInt> &&);
 POP_VISIBILITY()
 
 namespace hnnx {
@@ -437,7 +445,8 @@ PUSH_VISIBILITY(default)
 ///
 /// This is used within CHANGEDIM_SLICE
 ///
-QuickShape simpledim_split_start(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig, int dim);
+API_EXPORT QuickShape simpledim_split_start(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig,
+                                            int dim);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape simpledim_split_size(split,op,int); }
 
@@ -448,7 +457,8 @@ QuickShape simpledim_split_start(Replacement &rpx, Split_Context const &splitinf
 ///
 /// This is used within CHANGEDIM_SLICE
 ///
-QuickShape simpledim_split_size(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig, int dim);
+API_EXPORT QuickShape simpledim_split_size(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig,
+                                           int dim);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape simple_split_start(split,op); }
 
@@ -458,7 +468,7 @@ QuickShape simpledim_split_size(Replacement &rpx, Split_Context const &splitinfo
 ///
 /// This is used within TYPICAL_SLICE
 ///
-QuickShape simple_split_start(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig);
+API_EXPORT QuickShape simple_split_start(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape simple_split_size(split,op); }
 
@@ -469,7 +479,7 @@ QuickShape simple_split_start(Replacement &rpx, Split_Context const &splitinfo, 
 ///
 /// This is used within TYPICAL_SLICE
 ///
-QuickShape simple_split_size(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig);
+API_EXPORT QuickShape simple_split_size(Replacement &rpx, Split_Context const &splitinfo, OpRef const &orig);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_valid_split_start(split,op,op); }
 
@@ -478,8 +488,8 @@ QuickShape simple_split_size(Replacement &rpx, Split_Context const &splitinfo, O
 /// Generates shape {0, SPLIT_START * stride_h, 0, 0 }
 /// or
 /// Generates shape {0, 0, SPLIT_START * stride_w, 0 }
-QuickShape conv_valid_split_start(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
-                                  OpRef const &stride);
+API_EXPORT QuickShape conv_valid_split_start(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
+                                             OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_valid_split_size(split,op,op,int,int); }
 
@@ -490,8 +500,8 @@ QuickShape conv_valid_split_start(Replacement &rpx, Split_Context const &splitin
 /// where inrows = stride_h * (SPLIT_SIZE-1) + (filter_h - 1) * dilation + 1
 ///       incols = stride_w * (SPLIT_SIZE-1) + (filter_w - 1) * dilation + 1
 ///
-QuickShape conv_valid_split_size(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
-                                 OpRef const &stride, int window, int dilation);
+API_EXPORT QuickShape conv_valid_split_size(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
+                                            OpRef const &stride, int window, int dilation);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_split_start_valid(split,op,op,op); }
 
@@ -499,8 +509,8 @@ QuickShape conv_valid_split_size(Replacement &rpx, Split_Context const &splitinf
 ///
 /// Generates shape {0, SPLIT_START * stride_h, 0, 0 }
 
-QuickShape conv_split_start_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
-                                  OpRef const &weights, OpRef const &stride);
+API_EXPORT QuickShape conv_split_start_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
+                                             OpRef const &weights, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_split_size_valid(split,op,op,op); }
 
@@ -510,8 +520,8 @@ QuickShape conv_split_start_valid(Replacement &rpx, Split_Context const &splitin
 ///
 /// where inrows = stride_h * (SPLIT_SIZE-1) + filter_h
 ///
-QuickShape conv_split_size_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
-                                 OpRef const &weights, OpRef const &stride);
+API_EXPORT QuickShape conv_split_size_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
+                                            OpRef const &weights, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_split_size_valid_dil(split,op,op,op,op); }
 
@@ -521,16 +531,16 @@ QuickShape conv_split_size_valid(Replacement &rpx, Split_Context const &splitinf
 ///
 /// where inrows = stride_h * (SPLIT_SIZE-1) + (filter_h - 1) * dilation + 1
 ///
-QuickShape conv_split_size_valid_dil(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
-                                     OpRef const &weights, OpRef const &stride, OpRef const &dilation);
+API_EXPORT QuickShape conv_split_size_valid_dil(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
+                                                OpRef const &weights, OpRef const &stride, OpRef const &dilation);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape pool_split_start_valid(split,op,op,op); }
 
 /// @brief make 'start' shape for splitting input to 'valid' Xpool, where the input is being split along height
 ///
 /// Generates shape {0, SPLIT_START * stride_h, 0, 0 }
-QuickShape pool_split_start_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
-                                  OpRef const &window, OpRef const &stride);
+API_EXPORT QuickShape pool_split_start_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
+                                             OpRef const &window, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape pool_split_size_valid(split,op,op,op); }
 
@@ -540,14 +550,14 @@ QuickShape pool_split_start_valid(Replacement &rpx, Split_Context const &splitin
 ///
 /// where inrows = stride_h * (SPLIT_SIZE-1) + window_h
 ///
-QuickShape pool_split_size_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
-                                 OpRef const &window, OpRef const &stride);
+API_EXPORT QuickShape pool_split_size_valid(Replacement &rpx, Split_Context const &splitinfo, OpRef const &Act,
+                                            OpRef const &window, OpRef const &stride);
 
 /** @} */
 
 namespace optim_extfunc { // in concat_opt.cc
-QuickShape offset_into_concat(Replacement &rpx, Split_Context const &splitinfo, OpRef const &concat,
-                              OpRef const &base_shape);
+API_EXPORT QuickShape offset_into_concat(Replacement &rpx, Split_Context const &splitinfo, OpRef const &concat,
+                                         OpRef const &base_shape);
 }
 
 /**
@@ -567,11 +577,11 @@ QuickShape offset_into_concat(Replacement &rpx, Split_Context const &splitinfo, 
 
 // :::EXTERNAL_SHAPEFN::: {  qshape split_merge_start(op,op); }
 
-QuickShape split_merge_start(Replacement &rpx, OpRef const &inner, OpRef const &outer);
+API_EXPORT QuickShape split_merge_start(Replacement &rpx, OpRef const &inner, OpRef const &outer);
 
 //@brief Create shape with extra amount added along some axis
 // :::EXTERNAL_SHAPEFN::: { qshape shape_add_on_axis(op,op,int); }
-QuickShape shape_add_on_axis(Replacement &rpx, OpRef const &start, OpRef const &amt, int axis);
+API_EXPORT QuickShape shape_add_on_axis(Replacement &rpx, OpRef const &start, OpRef const &amt, int axis);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_same_padded_size(op,op,op); }
 ///@brief find padded shape for input to 'same' convolution
@@ -579,12 +589,13 @@ QuickShape shape_add_on_axis(Replacement &rpx, OpRef const &start, OpRef const &
 /// For a 'same' convolution, produce a shape the same as 'Act', but expanded in H and W dimensions to allow for the
 /// padding needed (as determined by the given filter shape and stride)
 ///
-QuickShape conv_same_padded_size(Replacement &rpx, OpRef const &Act, OpRef const &weights, OpRef const &stride);
+API_EXPORT QuickShape conv_same_padded_size(Replacement &rpx, OpRef const &Act, OpRef const &weights,
+                                            OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_same_padded_size(op,op,op,op); }
 ///@brief same as \conv_same_padded_size that support dilation, default should be {1,1}
-QuickShape conv_same_padded_size_dilation(Replacement &rpx, OpRef const &Act, OpRef const &weights, OpRef const &stride,
-                                          OpRef const &dilation);
+API_EXPORT QuickShape conv_same_padded_size_dilation(Replacement &rpx, OpRef const &Act, OpRef const &weights,
+                                                     OpRef const &stride, OpRef const &dilation);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_same_before(op,op,op); }
 
@@ -595,13 +606,13 @@ QuickShape conv_same_padded_size_dilation(Replacement &rpx, OpRef const &Act, Op
 ///
 ///   { 0, top_padding,  left_padding, 0 }
 ///
-QuickShape conv_same_before(Replacement &rpx, OpRef const &Act, OpRef const &weights, OpRef const &stride);
+API_EXPORT QuickShape conv_same_before(Replacement &rpx, OpRef const &Act, OpRef const &weights, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_same_before(op,op,op,op); }
 
 ///@brief same as \conv_same_before that support dilation, default should be {1,1}
-QuickShape conv_same_before_dilation(Replacement &rpx, OpRef const &Act, OpRef const &weights, OpRef const &stride,
-                                     OpRef const &dilation);
+API_EXPORT QuickShape conv_same_before_dilation(Replacement &rpx, OpRef const &Act, OpRef const &weights,
+                                                OpRef const &stride, OpRef const &dilation);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape pool_same_padded_size(op,op,op); }
 
@@ -610,7 +621,8 @@ QuickShape conv_same_before_dilation(Replacement &rpx, OpRef const &Act, OpRef c
 /// For a 'same' Xpool, produce a shape the same as 'Act', but expanded in H and W dimensions to allow for the
 /// padding needed (as determined by the given window shape and stride)
 ///
-QuickShape pool_same_padded_size(Replacement &rpx, OpRef const &Act, OpRef const &window, OpRef const &stride);
+API_EXPORT QuickShape pool_same_padded_size(Replacement &rpx, OpRef const &Act, OpRef const &window,
+                                            OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape pool_same_before(op,op,op); }
 
@@ -621,7 +633,7 @@ QuickShape pool_same_padded_size(Replacement &rpx, OpRef const &Act, OpRef const
 ///
 ///   { 0, top_padding,  left_padding, 0 }
 ///
-QuickShape pool_same_before(Replacement &rpx, OpRef const &Act, OpRef const &window, OpRef const &stride);
+API_EXPORT QuickShape pool_same_before(Replacement &rpx, OpRef const &Act, OpRef const &window, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape conv_s2d_shape(op,op,op); }
 
@@ -632,7 +644,7 @@ QuickShape pool_same_before(Replacement &rpx, OpRef const &Act, OpRef const &win
 /// Effective out shape is (eff in - filter + 1) (note that stride is changed to 1 after s2d)
 /// Does not handle dilation (this is handled earlier on in the def opt path)
 ///
-QuickShape conv_s2d_shape(Replacement &rpx, OpRef const &Act, OpRef const &filter, OpRef const &stride);
+API_EXPORT QuickShape conv_s2d_shape(Replacement &rpx, OpRef const &Act, OpRef const &filter, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape pad_total_for_qnn(op,op); }
 
@@ -641,15 +653,15 @@ QuickShape conv_s2d_shape(Replacement &rpx, OpRef const &Act, OpRef const &filte
 /// For a 'QNN_Conv' convolution, produce a shape the same as 'Act', but expanded in H and W dimensions, which
 /// is determined by the input pad_amount: [[h_before, h_after], [w_before, w_after]]
 ///
-QuickShape pad_total_for_qnn(Replacement &rpx, OpRef const &Act, OpRef const &pad_amount);
+API_EXPORT QuickShape pad_total_for_qnn(Replacement &rpx, OpRef const &Act, OpRef const &pad_amount);
 
 ///@brief use input pad_amount to calculate padded offset for input to use 'valid' pooling
 ///
 /// For QNN pool ops, produce a shape the same as 'Act', but expanded in H and W dimensions, which
 /// is determined by the input pad_amount: [[h_before, h_after], [w_before, w_after]]
 ///
-QuickShape pad_total_for_qnn_round(Replacement &rpx, OpRef const &Act, OpRef const &Stride, OpRef const &pad_amount,
-                                   OpRef const &rounding_mode);
+API_EXPORT QuickShape pad_total_for_qnn_round(Replacement &rpx, OpRef const &Act, OpRef const &Stride,
+                                              OpRef const &pad_amount, OpRef const &rounding_mode);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape pad_before_for_qnn(op,op); }
 
@@ -660,56 +672,56 @@ QuickShape pad_total_for_qnn_round(Replacement &rpx, OpRef const &Act, OpRef con
 ///
 ///   { 0, top_padding,  left_padding, 0 }
 ///
-QuickShape pad_before_for_qnn(Replacement &rpx, OpRef const &Act, OpRef const &pad_amount);
+API_EXPORT QuickShape pad_before_for_qnn(Replacement &rpx, OpRef const &Act, OpRef const &pad_amount);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape explicit_pad_for_qnn(op,op); }
 
-OpRef explicit_pad_for_qnn(Replacement &rpx, OpRef const &output, OpRef const &pad_amount);
+API_EXPORT OpRef explicit_pad_for_qnn(Replacement &rpx, OpRef const &output, OpRef const &pad_amount);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape reshape_hw_to_4d(op); }
 
 ///@brief given a tensor representing [h, w] expand to [1, h, w, 1]
-QuickShape reshape_hw_to_4d(Replacement &rpx, OpRef const &stride);
+API_EXPORT QuickShape reshape_hw_to_4d(Replacement &rpx, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape reshape_bhw_to_4d(op); }
 
 ///@brief given a tensor representing [b, h, w] expand to [b, h, w, 1]
-QuickShape reshape_bhw_to_4d(Replacement &rpx, OpRef const &stride);
+API_EXPORT QuickShape reshape_bhw_to_4d(Replacement &rpx, OpRef const &stride);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape shape_after_transpose(op,op); }
 
 ///@brief gives the new shape of a tensor after a transpose has been applied to it
-QuickShape shape_after_transpose(Replacement &rpx, OpRef const &input, OpRef const &tx_control);
+API_EXPORT QuickShape shape_after_transpose(Replacement &rpx, OpRef const &input, OpRef const &tx_control);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape shape_after_spaceToBatch(op,op); }
 // :::EXTERNAL_SHAPEFN::: {  qshape shape_after_spaceToBatch_w_pad(op,op,op); }
 
 ///@brief gives the new shape of a tensor after a SpaceToBatch transformation
-QuickShape shape_after_spaceToBatch(Replacement &rpx, OpRef const &input, OpRef const &block_size);
-QuickShape shape_after_spaceToBatch_w_pad(Replacement &rpx, OpRef const &input, OpRef const &block_size,
-                                          OpRef const &pads);
+API_EXPORT QuickShape shape_after_spaceToBatch(Replacement &rpx, OpRef const &input, OpRef const &block_size);
+API_EXPORT QuickShape shape_after_spaceToBatch_w_pad(Replacement &rpx, OpRef const &input, OpRef const &block_size,
+                                                     OpRef const &pads);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape shape_after_depthToSpace(op,op); }
 
 ///@brief gives the new shape after depthToSpace transformation
-QuickShape shape_after_depthToSpace(Replacement &rpx, OpRef const &input, OpRef const &block_size);
+API_EXPORT QuickShape shape_after_depthToSpace(Replacement &rpx, OpRef const &input, OpRef const &block_size);
 
 // :::EXTERNAL_SHAPEFN::: {  qshape before_pad_shape(op); }
 
 ///@brief extracts before pads from pad tensor
-QuickShape before_pad_shape(Replacement &rpx, OpRef const &input, OpRef const &padding);
+API_EXPORT QuickShape before_pad_shape(Replacement &rpx, OpRef const &input, OpRef const &padding);
 /** @} */
 
 // :::EXTERNAL_SHAPEFN::: {  qshape gen_null_shape(op); }
 
 ///@brief generate a shape of all 0s with same rank as input
-QuickShape gen_null_shape(Replacement &rpx, OpRef const &input);
+API_EXPORT QuickShape gen_null_shape(Replacement &rpx, OpRef const &input);
 /** @} */
 
 // :::EXTERNAL_SHAPEFN::: {  qshape shape_after_pad(op,op); }
 
 ///@brief gives the new shape after pad applied
-QuickShape shape_after_pad(Replacement &rpx, OpRef const &input, OpRef const &padding);
+API_EXPORT QuickShape shape_after_pad(Replacement &rpx, OpRef const &input, OpRef const &padding);
 /** @} */
 
 /////////////////////////////////////////////////////////////
@@ -775,7 +787,7 @@ struct MatchOpState {
     // This holds pointers to operands matched by MatchopIterator
     std::array<OpDef const *, MATCH_MAX_PATTERN> matched_opdef;
 
-    int lookup_opertag(operand_tag_parm_t optag) const;
+    API_EXPORT int lookup_opertag(operand_tag_parm_t optag) const;
     bool cse_candidate; // True for rules match Op (x, Op(...))
 };
 
@@ -798,14 +810,14 @@ class MatchOpBase {
     // It may be empty, if this was not enabled in the build.
     std::unique_ptr<const char[]> match_debug_desc;
 
-    virtual bool do_subclass_match(Match &m, OpDef const &op) const = 0;
+    API_EXPORT virtual bool do_subclass_match(Match &m, OpDef const &op) const = 0;
 
     API_EXPORT MatchOpBase(MatchAstNode const *, int matchcount,
                            std::vector<std::pair<operand_tag_t, int>> &&operindex);
 
-    static MatchOpState &matchop_state(Match &m);
+    API_EXPORT static MatchOpState &matchop_state(Match &m);
     // lookup_ref:   transform an OpRef to OpDef using the methods in Match
-    OpDef const &lookup_ref(Match &m, OpRef const &op) const;
+    API_EXPORT OpDef const &lookup_ref(Match &m, OpRef const &op) const;
 
   public:
     // OpRef to the matched pattern Ops are stored in a linear array,
@@ -847,23 +859,23 @@ class MatchOpBase {
     API_EXPORT static MatchOp_uptr build_MatchOp(MatchAstNode *);
 
     API_EXPORT virtual ~MatchOpBase();
-    bool do_match(Match &m, OpDef const &op) const;
+    API_EXPORT bool do_match(Match &m, OpDef const &op) const;
     // lookup an operand tag in m_operindex
     // Returns -1 if not found, or the index (will be in range 0..get_matchcount()-1)
     //
     API_EXPORT int lookup_opertag(operand_tag_parm_t optag) const;
     // this is so we can organize rules based on the root opname.
-    opname_tag_parm_t get_root_opname() const { return m_opname0; }
+    API_EXPORT opname_tag_parm_t get_root_opname() const { return m_opname0; }
 
     // these are used for WITH_OPT_DEBUG. When it is not defined. they return nullptr and empty-map.
-    char const *get_debug_desc() const { return match_debug_desc.get(); } // may return nullptr
+    API_EXPORT char const *get_debug_desc() const { return match_debug_desc.get(); } // may return nullptr
     API_EXPORT std::map<OpId, operand_tag_parm_t> get_inverse_map(MatchOpState const &m) const;
 
-    const std::vector<std::pair<operand_tag_t, int>> &get_operindex() const { return m_operindex; };
+    API_EXPORT const std::vector<std::pair<operand_tag_t, int>> &get_operindex() const { return m_operindex; };
 
     // Number of operators in match
-    virtual unsigned match_size() const = 0;
-    virtual const std::vector<opdesc> *get_opdesc() const = 0;
+    API_EXPORT virtual unsigned match_size() const = 0;
+    API_EXPORT virtual const std::vector<opdesc> *get_opdesc() const = 0;
 };
 
 static void fail_lookup(operand_tag_parm_t optag)
@@ -872,7 +884,7 @@ static void fail_lookup(operand_tag_parm_t optag)
     throw std::runtime_error("match parm not found");
 }
 
-inline int MatchOpState::lookup_opertag(operand_tag_parm_t optag) const
+API_FUNC_EXPORT inline int MatchOpState::lookup_opertag(operand_tag_parm_t optag) const
 {
     int const idx = current_matchop->lookup_opertag(optag);
     if (idx < 0) fail_lookup(optag);
@@ -895,7 +907,7 @@ inline int MatchOpState::lookup_opertag(operand_tag_parm_t optag) const
 
 class GraphOptContext_Base : public RefersToGraph {
   protected:
-    GraphOptContext_Base(Graph &g) : RefersToGraph(g) {}
+    API_EXPORT GraphOptContext_Base(Graph &g) : RefersToGraph(g) {}
 };
 
 // this is a virtual base class which is used to implement MESSAGE dumps
@@ -927,13 +939,13 @@ class OptDebugBase {
     virtual OpDef const *get_bound_opdef(unsigned idx) const = 0;
 
   public:
-    virtual uint32_t saved_opid() const { return m_saved_opid; }
+    API_EXPORT virtual uint32_t saved_opid() const { return m_saved_opid; }
 
     // get mapping from OpId->parm for all OpId in the match pattern; this is used
     // to show the replacement pattern.
     using id_to_parmname_map = std::map<OpId, operand_tag_parm_t>;
-    virtual id_to_parmname_map get_id_to_parmname_map() const = 0;
-    virtual std::string get_debug_filepos() const = 0;
+    API_EXPORT virtual id_to_parmname_map get_id_to_parmname_map() const = 0;
+    API_EXPORT virtual std::string get_debug_filepos() const = 0;
 };
 
 /*
@@ -977,21 +989,21 @@ class Match : public GraphOptContext_Base {
     API_EXPORT void set_config_vars();
 
     // these are debug hooks; they are defined later as inlines
-    void constraint_begin(GraphOptInfo const &);
-    void replacement_fail();
-    void replacement_succeed(OpId newop);
+    API_EXPORT void constraint_begin(GraphOptInfo const &);
+    API_EXPORT void replacement_fail();
+    API_EXPORT void replacement_succeed(OpId newop);
 
   public:
     // this can be used to test whether an OpId was created since the replacement
     // rule started (though, not at all reliable for 'OpDef_ConstBase' ops).
-    inline bool opid_is_new(OpId op) const { return uint32_t(op >> 32) >= save_op_id_counter; }
+    API_EXPORT inline bool opid_is_new(OpId op) const { return uint32_t(op >> 32) >= save_op_id_counter; }
 
-    hnnx::MatchOpState &get_matchop_state() { return matchop_state; }
+    API_EXPORT hnnx::MatchOpState &get_matchop_state() { return matchop_state; }
 
     //template<typename UniqueType> bool match(OpDef &base);
     typedef MatchAst_uptr (*matchbuilder_type)();
-    optim_config_values const &get_config() const { return config_vars; }
-    void show_debug_message(char const *why, char const *str)
+    API_EXPORT optim_config_values const &get_config() const { return config_vars; }
+    API_EXPORT void show_debug_message(char const *why, char const *str)
 #ifndef WITH_OPT_DEBUG
     {
     }
@@ -1165,12 +1177,15 @@ class Replacement : public Constraint {
 
   protected:
     OpDef const *m_curr_op; // used as id reference in 'APPLY'
-    API_EXPORT static std::string pkg_flag;
+    API_EXPORT_IMPORT static std::string pkg_flag;
     Replacement(Graph &g) : Constraint(g), m_curr_op(NULL) {}
 
   public:
-    OpRef do_replacement(const OpDef &oldop, ReplFunc const &replace_func) { return replace_func(*this, oldop); }
-    auto find_context(hnnx::split_context_tag_t tag)
+    API_EXPORT OpRef do_replacement(const OpDef &oldop, ReplFunc const &replace_func)
+    {
+        return replace_func(*this, oldop);
+    }
+    API_EXPORT auto find_context(hnnx::split_context_tag_t tag)
     {
         auto cur = split_context.rbegin();
         auto end = split_context.rend();
@@ -1180,7 +1195,7 @@ class Replacement : public Constraint {
         return split_context.rend();
         ;
     }
-    const Split_Context &lookup_split(hnnx::split_context_tag_t tag) const
+    API_EXPORT const Split_Context &lookup_split(hnnx::split_context_tag_t tag) const
     {
         return const_cast<Replacement *>(this)->find_context(tag)->second;
     }
@@ -1200,21 +1215,24 @@ class Replacement : public Constraint {
     //   OpRef -> same;
     //   operand_tag -> lookup OpRef;
     //   ReplFunc -> call it to get OpRef.
-    inline int apply_param_adapter(const OpDef &base, int val) { return val; }
-    inline size_t apply_param_adapter(const OpDef &base, size_t val) { return val; }
-    inline float apply_param_adapter(const OpDef &base, float val) { return val; }
-    inline DType apply_param_adapter(const OpDef &base, DType val) { return val; }
-    inline OpRef apply_param_adapter(const OpDef &base, hnnx::operand_tag_parm_t str) { return get_opref(str); }
-    inline OpRef apply_param_adapter(const OpDef &base, OpRef ref) { return ref; }
-    inline OpRef apply_param_adapter(const OpDef &base, ReplFunc const &f) { return f(*this, base); }
+    API_EXPORT inline int apply_param_adapter(const OpDef &base, int val) { return val; }
+    API_EXPORT inline size_t apply_param_adapter(const OpDef &base, size_t val) { return val; }
+    API_EXPORT inline float apply_param_adapter(const OpDef &base, float val) { return val; }
+    API_EXPORT inline DType apply_param_adapter(const OpDef &base, DType val) { return val; }
+    API_EXPORT inline OpRef apply_param_adapter(const OpDef &base, hnnx::operand_tag_parm_t str)
+    {
+        return get_opref(str);
+    }
+    API_EXPORT inline OpRef apply_param_adapter(const OpDef &base, OpRef ref) { return ref; }
+    API_EXPORT inline OpRef apply_param_adapter(const OpDef &base, ReplFunc const &f) { return f(*this, base); }
 
     template <oExp::Variant V, typename T>
-    inline auto apply_param_adapter(const OpDef &base, oExp::expr<V, T> const &expn)
+    API_EXPORT inline auto apply_param_adapter(const OpDef &base, oExp::expr<V, T> const &expn)
     {
         return expn.eval(*this);
     }
     template <oExp::OpVnt V, typename T>
-    inline OpRef apply_param_adapter(const OpDef &base, oExp::opexpr<V, T> const &expn)
+    API_EXPORT inline OpRef apply_param_adapter(const OpDef &base, oExp::opexpr<V, T> const &expn)
     {
         return expn.eval(*this);
     }
@@ -1371,12 +1389,13 @@ class Replacement : public Constraint {
         return WrapOp_internal(opname, pkg_flag.c_str(), std::move(f), false);
     }
 
-    OpRef immed_gen_ShapeOf(OpRef const &shaperef, OpDef const &old);
+    API_EXPORT OpRef immed_gen_ShapeOf(OpRef const &shaperef, OpDef const &old);
     /// \ingroup OptReplacement
     /// @brief gen_ShapeOf(any_oper) - Construct an OpDef_Shape with the shape taken from the given graph operation.
     API_EXPORT static ReplFunc gen_ShapeOf(ReplFunc_or_Operand &&shape);
 
-    static inline OpDef immed_modifier_OUTPUT_TYPE(OpDef const &old, DType dtype, int32_t zero_offset, float stepsize)
+    API_EXPORT static inline OpDef immed_modifier_OUTPUT_TYPE(OpDef const &old, DType dtype, int32_t zero_offset,
+                                                              float stepsize)
     {
         OutputDef temp{};
         temp.dtype = dtype;
@@ -1773,13 +1792,16 @@ class Replacement : public Constraint {
 
     API_EXPORT OpRef gen_Shape_in_graph(const OpDef &old, int rank, size_t const *sizes);
 
-    template <DType DT> OpRef gen_Const_scalar(const OpDef &old, typename dtype_traits<DT>::element_type constval);
+    template <DType DT>
+    API_EXPORT OpRef gen_Const_scalar(const OpDef &old, typename dtype_traits<DT>::element_type constval);
 
     template <DType DT>
-    OpRef gen_Const_1D_array(const OpDef &old, typename dtype_traits<DT>::element_type const *vals, size_t n);
+    API_EXPORT OpRef gen_Const_1D_array(const OpDef &old, typename dtype_traits<DT>::element_type const *vals,
+                                        size_t n);
 
     template <DType DT>
-    OpRef gen_Const_mD_array(const OpDef &old, typename dtype_traits<DT>::element_type const *vals, size_t n, size_t m);
+    API_EXPORT OpRef gen_Const_mD_array(const OpDef &old, typename dtype_traits<DT>::element_type const *vals, size_t n,
+                                        size_t m);
 
     API_EXPORT OpRef gen_Const_int32_common(const OpDef &old, const OutputDef &out_def, const uint8_t *data,
                                             size_t data_len);
@@ -1787,7 +1809,7 @@ class Replacement : public Constraint {
     API_EXPORT OpRef gen_Const_float_common(const OpDef &old, const OutputDef &out_def, const uint8_t *data,
                                             size_t data_len);
 
-    template <typename UniqueType> static ReplFunc replacement();
+    template <typename UniqueType> API_EXPORT static ReplFunc replacement();
     //typedef OpRef (Replacement::*replacementfn_type)(const OpDef &oldop);
     typedef ReplFunc (*replacementfn_type)();
 
@@ -1804,11 +1826,12 @@ namespace hnnx {
 // and GETCONST_FLOAT, CONSTVAL_FLOAT_VALID
 // The first part of the return value is the result from CONSTVAL_INT(op,idx)
 // The second part is the return from CONSTVAL_INT_VALID
-std::pair<NN_INT32_T, bool> getconst_int_impl(Graph &g, OpDef const &opdef, int index);
-std::pair<NN_INT32_T, bool> getconst_int_impl(Graph &g, OpDef const &opdef, int index, int index2);
-std::pair<float, bool> getconst_float_impl(Graph &g, OpDef const &opdef, int index);
-std::pair<float, bool> getconst_float_impl(Graph &g, OpDef const &opdef, int index, int index2);
-bool producer_for_impl(OpDef const &opdef, std::string &consumer_opname);
+API_EXPORT std::pair<NN_INT32_T, bool> getconst_int_impl(Graph &g, OpDef const &opdef, int index);
+API_EXPORT std::pair<NN_INT32_T, bool> getconst_int_impl(Graph &g, OpDef const &opdef, int index, int index2);
+API_EXPORT std::pair<float, bool> getconst_float_impl(Graph &g, OpDef const &opdef, int index);
+API_EXPORT std::pair<float, bool> getconst_float_impl(Graph &g, OpDef const &opdef, int index, int index2);
+API_EXPORT bool producer_for_impl(OpDef const &opdef, const hnnx::opname_tag_t consumer_opname);
+
 class GraphOptInfo;
 /*
  * A GraphOptContext ties these all together, along with the 'attempt' method
@@ -1878,30 +1901,29 @@ class GraphOptInfo {
     API_EXPORT static void insert_optimization(std::map<int, GraphOptPass> &opt_passes, GraphOptInfo *p);
     API_EXPORT static void populate_package_optimization_map(std::vector<std::unique_ptr<GraphOptInfo>> &opts);
 
-    inline bool test_constraint(Constraint &cst) const
+    API_EXPORT inline bool test_constraint(Constraint &cst) const
     {
         // an empty constraint_func means 'always'
         return constraint_func ? constraint_func(cst) : true;
     }
-    GraphOptInfo const *next_optim() const { return next_in_pass; }
-    void set_next_in_pass(const GraphOptInfo *next) { next_in_pass = next; }
+    API_EXPORT GraphOptInfo const *next_optim() const { return next_in_pass; }
+    API_EXPORT void set_next_in_pass(const GraphOptInfo *next) { next_in_pass = next; }
 
-    MatchOpBase &get_matchop() const { return *matchop_ptr.get(); }
+    API_EXPORT MatchOpBase &get_matchop() const { return *matchop_ptr.get(); }
 
-    OptimFlags::flags_t get_flags() const { return flags; }
-    bool has_flags(OptimFlags::flags_t v) const { return (flags & v) != 0; }
-    inline void add_debug_info(char const *const filename, const int lineno)
+    API_EXPORT OptimFlags::flags_t get_flags() const { return flags; }
+    API_EXPORT bool has_flags(OptimFlags::flags_t v) const { return (flags & v) != 0; }
+    API_EXPORT inline void add_debug_info(char const *const filename, const int lineno)
     {
         debug_filename = filename;
         debug_lineno = lineno;
     }
-    inline char const *get_filename() const { return debug_filename; }
+    API_EXPORT inline char const *get_filename() const { return debug_filename; }
     // get the filename.cc:lineo as a string
     API_EXPORT std::string get_debug_filepos() const;
-    int get_priority() const { return priority; }
+    API_EXPORT int get_priority() const { return priority; }
 };
 
-#ifndef PREPARE_DISABLED
 #ifndef DEF_OPT_COMPILE
 #define DEF_AUTOSPLIT_COMMON(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, dim, var, CHUNKSIZE, REPLACE)                 \
     template <> hnnx::MatchAst_uptr MatchBuilder::matcher<UNIQUE_TYPE>() { return MATCHCODE; }                         \
@@ -1948,17 +1970,8 @@ class GraphOptInfo {
 #define DEF_AUTOSPLIT_TYPICAL(PRIORITY, OPSTR, ARITY, dim, CHUNKSIZE)                                                  \
     DEF_AUTOSPLIT_COMMON(PRIORITY, 0, OpVarIn(OPSTR), OK, dim, "I", CHUNKSIZE,                                         \
                          OP_ITER(Op(OPSTR), "J", 0, INPUTS_OF("*"),                                                    \
-                                 SELECT(OR(OR(GT(ADD(1, SPLIT_START("J")), ARITY),                                     \
-                                              EQ(DIM_OF(ITER_INPUT_OF("*", "J"), dim), CHUNKSIZE)),                    \
-                                           IS_SCALAR(ITER_INPUT_OF("*", "J"))),                                        \
-                                        ITER_INPUT_OF("*", "J"), TYPICAL_SLICE(ITER_INPUT_OF("*", "J"), "I"))))
-
-#else
-#define DEF_AUTOSPLIT(...)
-#define DEF_AUTOSPLITIM(...)
-#define DEF_AUTOSPLIT_ORDERED(...)
-#define DEF_AUTOSPLIT_TYPICAL(...)
-#endif
+                                 SELECT(GE(SPLIT_START("J"), ARITY), ITER_INPUT_OF("*", "J"),                          \
+                                        TYPICAL_SLICE(ITER_INPUT_OF("*", "J"), "I"))))
 
 // This class organizes the rules that which
 // are part of the same optimization pass (priority, phase,...)
@@ -2037,20 +2050,20 @@ class GraphOptPass {
     API_EXPORT void build_matchers();
 
     // return the priority for thi pass
-    int get_priority() const { return priority; }
+    API_EXPORT int get_priority() const { return priority; }
     // return the combined flags for rules in this pass
-    OptimFlags::flags_t get_flags() const { return flags; }
+    API_EXPORT OptimFlags::flags_t get_flags() const { return flags; }
 
     // used in introspect.cc only
-    const rules_map_t &get_rules() const { return rules; }
+    API_EXPORT const rules_map_t &get_rules() const { return rules; }
 
     // This instance is used whenever there are no matches to
     // the root of an operator
-    API_EXPORT static MatcherState empty_matcher;
+    API_EXPORT_IMPORT static MatcherState empty_matcher;
 
     // Return the matcher state associated with rules that
     // might match opdef.
-    const MatcherState &get_optims(OpDef const *opdef) const
+    API_EXPORT const MatcherState &get_optims(OpDef const *opdef) const
     {
         // avoid the map if the the filter test failes...
         if (not(set_bitmap & hash(opdef->opstr))) return empty_matcher;
@@ -2066,13 +2079,13 @@ class GraphOptPass {
 
       public:
         RuleList(MatchOpState &matchop_state, const MatcherState &state) : matchop_state(matchop_state), state(state) {}
-        MatchIterator begin() const noexcept { return MatchIterator(matchop_state, state, 0); }
-        MatchIterator end() const noexcept { return MatchIterator(matchop_state); }
+        API_EXPORT MatchIterator begin() const noexcept { return MatchIterator(matchop_state, state, 0); }
+        API_EXPORT MatchIterator end() const noexcept { return MatchIterator(matchop_state); }
     };
 
     // Return the rules which might match 'opdef' using 'matchop_state'
     // to cachine opdef looksups.
-    RuleList optims(MatchOpState &matchop_state, const OpDef *opdef) const
+    API_EXPORT RuleList optims(MatchOpState &matchop_state, const OpDef *opdef) const
     {
         matchop_state.matched_opdef[0] = opdef;
         return RuleList(matchop_state, get_optims(opdef));
@@ -2092,18 +2105,19 @@ PUSH_VISIBILITY(default)
 
 namespace hnnx {
 
-std::map<int, GraphOptPass> &get_optimization_passes();
+API_EXPORT std::map<int, GraphOptPass> &get_optimization_passes();
 
-std::map<std::string, std::vector<std::unique_ptr<GraphOptInfo>> *> &get_pkg_opt_tmp_map();
+API_EXPORT std::map<std::string, std::vector<std::unique_ptr<GraphOptInfo>> *> &get_pkg_opt_tmp_map();
 
-void add_package_opt(std::vector<std::unique_ptr<GraphOptInfo>> &opts, int priority, OptimFlags::flags_t flags_in,
-                     get_entire_defopt_t defopt_in, char const *const fname, const int lineno);
+API_EXPORT void add_package_opt(std::vector<std::unique_ptr<GraphOptInfo>> &opts, int priority,
+                                OptimFlags::flags_t flags_in, get_entire_defopt_t defopt_in, char const *const fname,
+                                const int lineno);
 // This entry is only for backwards ABI compatibility for exising op packages
 // compiled when fname and line number were not in the default build.
-void add_package_opt(std::vector<std::unique_ptr<GraphOptInfo>> &opts, int priority, OptimFlags::flags_t flags_in,
-                     get_entire_defopt_t defopt_in);
+API_EXPORT void add_package_opt(std::vector<std::unique_ptr<GraphOptInfo>> &opts, int priority,
+                                OptimFlags::flags_t flags_in, get_entire_defopt_t defopt_in);
 
-std::string get_opname_with_default_pkg_prefix(char const *opname);
+API_EXPORT std::string get_opname_with_default_pkg_prefix(char const *opname);
 
 } // namespace hnnx
 
@@ -2126,21 +2140,13 @@ POP_VISIBILITY()
 
 #define REGISTER_INTERNAL_PACKAGE_OPT(PRIORITY, FLAGS, DEFOPT) APPEND_REG_OPT_ELEM(PRIORITY, FLAGS, DEFOPT, __LINE__)
 
-#ifndef PREPARE_DISABLED
 #define DEF_PACKAGE_OPTIMIZATION(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)                                     \
     DEF_PACKAGE_OPTIMIZATION_WITH_FLAGS(PRIORITY, 0, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
-#else
-#define DEF_PACKAGE_OPTIMIZATION(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
-#endif
 
-#ifndef PREPARE_DISABLED
 #define DEF_PACKAGE_OPTIMIZATION_WITH_FLAGS(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)                   \
     DEF_PACKAGE_OPTIMIZATION_COMMON(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)                           \
     REGISTER_EXTERNAL_PACKAGE_OPT((PRIORITY), hnnx::OptimFlags::flag_evaluate<UNIQUE_TYPE>(),                          \
                                   &hnnx::get_entire_defopt<UNIQUE_TYPE>);
-#else
-#define DEF_PACKAGE_OPTIMIZATION_WITH_FLAGS(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
-#endif
 
 #define DEF_INTERNAL_PACKAGE_OPTIMIZATION(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)                            \
     DEF_INTERNAL_PACKAGE_OPTIMIZATION_WITH_FLAGS(PRIORITY, 0, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
@@ -2195,34 +2201,15 @@ POP_VISIBILITY()
         if (ok) iter->second = &current_package_opts_storage_vec_func();                                               \
     } /* if so, replace it with this */
 
-#ifndef PREPARE_DISABLED
 #define DEF_OPTIM(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)                                             \
     DEF_INTERNAL_PACKAGE_OPTIMIZATION_WITH_FLAGS(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
-#else
-#define DEF_OPTIM(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
-#endif
 
-#ifndef PREPARE_DISABLED
 #define DEF_OPT(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)                                                      \
     DEF_INTERNAL_PACKAGE_OPTIMIZATION(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
-#else
-#define DEF_OPT(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
-#endif
 
 #define FROM_DEFAULT_PACKAGE(OP) hnnx::get_opname_with_default_pkg_prefix(OP).c_str()
 
 DECLARE_PACKAGE_OPTIMIZATION_DEF()
-
-#define COMPILER_FOR(XXF, FUNC, PARA)                                                                                  \
-    template <> constexpr bool has_compile_method<XXF> = true;                                                         \
-    template <> struct OpaqueT_FOR<XXF> {                                                                              \
-        using type = PARA;                                                                                             \
-    };                                                                                                                 \
-    template <> hnnx::Executable::ItemType hnnx::TypicalOpWithCompiler<XXF, PARA>::compile(Graph &graph_in) const      \
-    {                                                                                                                  \
-        static_assert(check_szal());                                                                                   \
-        return FUNC(graph_in, this);                                                                                   \
-    }
 
 // [DEPRECATED] Old Pass Phases
 // see docs/def_opt_migration.md
@@ -2311,6 +2298,8 @@ DECLARE_PACKAGE_OPTIMIZATION_DEF()
 #define EARLY         3050 // (ANALYSIS + 50)
 #define MIDDLE        20050 // (HARD_OPS + 50)
 #define LATE          21050 // (TCM_MIGRATION + 50)
+// For Upcoming centralized LAYOUT_AND_PLACEMENT changes
+#define LAYOUT_AND_PLACEMENT 21100 // (TCM_MIGRATION + 100)
 #endif
 
 #define GET_DILVALUE(arg1, arg2, ...) arg2
@@ -2319,11 +2308,46 @@ DECLARE_PACKAGE_OPTIMIZATION_DEF()
     AUTOSPLIT_SLICE(in, AUTOSPLIT_SHAPEFN_APPLY(conv_valid_split_start, tag, in, stride),                              \
                     AUTOSPLIT_SHAPEFN_APPLY(conv_valid_split_size, tag, in, stride, filt_taps,                         \
                                             GET_DILVALUE(dummy, ##__VA_ARGS__, 1)))
-
+#ifndef DTP_COMPILE
+#define DEF_TENSOR_PROPERTIES(...)                                                                                     \
+    namespace DefProperties {                                                                                          \
+    [[maybe_unused]] static bool CTRICKS_PASTER(opdef_proprety, __LINE__) =                                            \
+            hnnx::register_tensor_properties(THIS_PKG_NAME_STR, TensorInfoBuilder(THIS_PKG_NAME_STR, __VA_ARGS__));    \
+    }
+#else
+#define DEF_TENSOR_PROPERTIES(...) __dtp__(__VA_ARGS__)<<<__FILE__, __LINE__>>>
 #endif
+#else
+#define DEF_TENSOR_PROPERTIES(...)
+#define DEF_AUTOSPLIT(...)
+#define DEF_AUTOSPLITIM(...)
+#define DEF_AUTOSPLIT_ORDERED(...)
+#define DEF_AUTOSPLIT_TYPICAL(...)
+#define DEF_PACKAGE_OPTIMIZATION(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
+#define DEF_PACKAGE_OPTIMIZATION_WITH_FLAGS(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
+#define DEF_OPTIM(PRIORITY, FLAGS, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
+#define DEF_OPT(PRIORITY, MATCHCODE, CONSTRAINTCODE, REPLACECODE)
+#define INIT_PACKAGE_OPTIMIZATION_DEF()                                                                                \
+    /* Provide no-op definition so clearPkgStorage still works */                                                      \
+    extern "C" void clearPackageOptStorageVecFunc() {}
+#define REGISTER_PACKAGE_OPTIMIZATIONS()
+#endif // PREPARE_DISABLED
+
+#define COMPILER_FOR(XXF, FUNC, PARA)                                                                                  \
+    template <> constexpr bool has_compile_method<XXF> = true;                                                         \
+    template <> struct OpaqueT_FOR<XXF> {                                                                              \
+        using type = PARA;                                                                                             \
+    };                                                                                                                 \
+    template <> hnnx::Executable::ItemType hnnx::TypicalOpWithCompiler<XXF, PARA>::compile(Graph &graph_in) const      \
+    {                                                                                                                  \
+        static_assert(check_szal());                                                                                   \
+        return FUNC(graph_in, this);                                                                                   \
+    }
 
 // placeholders for eventual functionality
 #define TILE_SHAPE(...)
 #define TILE_FLAGS(...)
 #define TILE_COST(...)
 #define TILE_LIKE(...)
+
+#endif
